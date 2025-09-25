@@ -11,7 +11,7 @@ const upload = require("../config/multer")
 //register admin
 async function createAdmin(req, res) {
   try {
-    const { name, email, password, OTP, phone, address, } =
+    const { name, email, password, OTP, phone, } =
       req.body;
       
       const profileImage = req.file ? req.file.path : null;
@@ -36,9 +36,8 @@ async function createAdmin(req, res) {
       password: hashedPassword,
       OTP: otp,
       phone,
-      address,
       profileImage,
-      otpExpires: Date.now() * 10 * 60 * 1000,
+      otpExpired: Date.now() + 10 * 60 * 1000,
     });
 
     await newAdmin.save();
@@ -67,7 +66,6 @@ async function createAdmin(req, res) {
         email: newAdmin.email,
         OTP: newAdmin.OTP,
         phone: newAdmin.phone,
-        address: newAdmin.address,
       },
     });
   } catch (error) {
@@ -80,7 +78,7 @@ async function createAdmin(req, res) {
 async function resendOTP(req, res) {
   try {
     const { email } = req.body;
-    const admin = await Admin.findOne(email);
+    const admin = await Admin.findOne({email});
 
     if (!admin) {
       return res.status(404).send({ message: "Admin not found" });
@@ -97,6 +95,7 @@ async function resendOTP(req, res) {
     res.status(200).send({
       message: "New OTP sent successfully",
       email: admin.email,
+      OTP: admin.OTP,
     });
   } catch (error) {
     console.error(error);
@@ -142,7 +141,7 @@ async function adminLogin(req, res){
     try {
         const {email, password} = req.body;
         if(!email || !password){
-            res.status(400).send({message: "Invalid credential"});
+          return  res.status(400).send({message: "Invalid credential"});
         }
 
         const admin = await Admin.findOne({email});
@@ -150,7 +149,12 @@ async function adminLogin(req, res){
             return res.status(404).send({error: "Admin not found"});
         }
 
-        const otpverify = await Admin.findOne({email, isVerified});
+        const validPassword = await bcrypt.compare(password, admin.password);
+        if (!validPassword) {
+          return res.status(400).send({ message: "Invalid credentials" });
+        }
+
+        const otpverify = await Admin.findOne({email, isVerified: true});
         if(!otpverify){
           return res.status(400).send({message: "Please verify your account"})
         };
@@ -170,7 +174,7 @@ async function adminLogin(req, res){
           token,
           admin: {
             id: admin._id,
-            name: admin._name,
+            name: admin.name,
             email: admin.email
           },
         });

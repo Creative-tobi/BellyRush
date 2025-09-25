@@ -9,8 +9,9 @@ const buyerSchema = new mongoose.Schema({
   otpExpired: Date,
   isVerified: { type: Boolean, default: false },
   phone: { type: String, required: true, unique: true },
-  address: { type: String, required: true },
+  // address: { type: String, required: true },
   profileImage: { type: String, default: "" },
+  stripeId:{type: String}
 });
 
 module.exports = mongoose.model("Buyer", buyerSchema);

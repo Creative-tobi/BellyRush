@@ -21,7 +21,7 @@ async function createVendor(req, res) {
       hours,
       Cuisine,
       status,
-      deliveryArea,
+      deliveryarea,
       earnings,
       rating,
       reviews,
@@ -60,12 +60,12 @@ async function createVendor(req, res) {
       menu,
       Cuisine,
       status,
-      deliveryArea,
+      deliveryarea,
       earnings,
       rating,
       reviews,
       payout,
-      otpExpires: Date.now() * 10 * 60 * 1000,
+      otpExpired: Date.now() + 10 * 60 * 1000,
     });
 
     await newVendor.save();
@@ -90,7 +90,7 @@ async function createVendor(req, res) {
       token,
       VideoEncoder: {
         id: newVendor._id,
-        restaurantName: newVendor.name,
+        restaurantName: newVendor.restaurantName,
         email: newVendor.email,
         OTP: newVendor.OTP,
         phone: newVendor.phone,
@@ -103,7 +103,7 @@ async function createVendor(req, res) {
         earnings: newVendor.earnings,
         rating: newVendor.rating,
         reviews: newVendor.reviews,
-        commission: newVendor.commision,
+        commission: newVendor.commission,
         payout: newVendor.payout,
         menu: newVendor.menu,
       },
@@ -118,7 +118,7 @@ async function createVendor(req, res) {
 async function resendOTP(req, res) {
   try {
     const { email } = req.body;
-    const vendor = await Vendor.findOne(email);
+    const vendor = await Vendor.findOne({email});
 
     if (!vendor) {
       return res.status(404).send({ message: "Vendor not found" });
@@ -135,6 +135,7 @@ async function resendOTP(req, res) {
     res.status(200).send({
       message: "New OTP sent successfully",
       email: vendor.email,
+      OTP: vendor.OTP,
     });
   } catch (error) {
     console.error(error);
@@ -156,7 +157,7 @@ async function verifyOTP(req, res) {
     }
 
     if (vendor.OTP !== Number(OTP))
-      return res.satus(400).send({ message: "Invalid OTp" });
+      return res.status(400).send({ message: "Invalid OTp" });
 
     if (vendor.otpExpired < Date.now())
       return res
@@ -180,7 +181,7 @@ async function vendorLogin(req, res) {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      res.status(400).send({ message: "Invalid credential" });
+    return  res.status(400).send({ message: "Invalid credential" });
     }
 
     const vendor = await Vendor.findOne({ email });
@@ -188,7 +189,12 @@ async function vendorLogin(req, res) {
       return res.status(404).send({ error: "Delivery man not found" });
     }
 
-    const otpverify = await Vendor.findOne({ email, isVerified });
+    const validPassword = await bcrypt.compare(password, vendor.password);
+    if (!validPassword) {
+      return res.status(400).send({ message: "Invalid credentials" });
+    }
+
+    const otpverify = await Vendor.findOne({ email, isVerified: true });
     if (!otpverify) {
       return res.status(400).send({ message: "Please verify your account" });
     }
@@ -209,7 +215,7 @@ async function vendorLogin(req, res) {
       token,
       vendor: {
         id: vendor._id,
-        name: vendor._name,
+        restaurantName: vendor.restaurantName,
         email: vendor.email,
       },
     });
@@ -229,7 +235,7 @@ async function vendorProfile(req, res) {
       return res.status(400).send({ message: "Vendor not found" });
     }
 
-    res.status(200).send({ message: "Vendor profile", delivery });
+    res.status(200).send({ message: "Vendor profile", vendor });
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: "internal server error" });
@@ -255,7 +261,7 @@ async function updateVendor(req, res) {
       payout,
       menu,
     } = req.body;
-    const restaurant = await Vendor.findOne(email);
+    const restaurant = await Vendor.findOne({email});
 
     if (!restaurant) {
       return res.status(404).send({ message: "Vendr not available" });
@@ -291,12 +297,13 @@ async function createMenu(req, res){
       description,
       category,
       price,
-      image,
       ingredients,
       userID
     } = req.body;
 
-    const menu = Menu.findOne(userID);
+    const menu = Menu.findOne({userID});
+    const profileImage = req.file ? req.file.path : null;
+
 
     if(!menu){
       return res.status(404).send({message: "Vendor not found"})
@@ -307,7 +314,7 @@ async function createMenu(req, res){
       description,
       category,
       price,
-      image,
+      profileImage,
       ingredients,
     });
 
@@ -333,7 +340,7 @@ async function updateMenu(req, res) {
       image,
       ingredients,
     } = req.body;
-    const menu= await Menu.findOne(userID);
+    const menu= await Menu.findOne({userID});
 
     if (!menu) {
       return res.status(404).send({ message: "Vendor not available" });
@@ -372,7 +379,34 @@ async function deletemenu(req, res){
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-}
+};
+
+//updating order status
+
+async function updateStatus(req, res) {
+  try {
+    const {id} = req.params.id
+    const {
+     status
+    } = req.body;
+    const orderstatus = await Order.findOne({id});
+
+    if (!orderstatus) {
+      return res
+        .status(404)
+        .send({ message: "Delivery man not available not available" });
+    }
+
+    orderstatus.status = status;
+    await orderstatus.save();
+    return res
+      .status(200)
+      .send({ message: "Order status updated details updated successful", delivery });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+};
 
 module.exports = {
   createVendor,

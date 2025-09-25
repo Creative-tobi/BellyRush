@@ -4,12 +4,13 @@ const { Vendor, Order, Menu } = require("../model/vendor.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const upload = require("../config/multer");
+const stripe = require("../config/stripe");
 const sendMail = require("../service/nodemailer");
 
 //register buyer
 async function createBuyer(req, res) {
   try {
-    const { name, email, password, OTP, phone, address, } =
+    const { name, email, password, OTP, phone, } =
       req.body;
      
       const profileImage = req.file ? req.file.path : null;
@@ -34,9 +35,8 @@ async function createBuyer(req, res) {
       password: hashedPassword,
       OTP: otp,
       phone,
-      address,
       profileImage,
-      otpExpires: Date.now() * 10 * 60 * 1000,
+      otpExpired: Date.now() + 10 * 60 * 1000,
     });
 
     await newBuyer.save();
@@ -65,7 +65,6 @@ async function createBuyer(req, res) {
         email: newBuyer.email,
         OTP: newBuyer.OTP,
         phone: newBuyer.phone,
-        address: newBuyer.address,
       },
     });
   } catch (error) {
@@ -78,7 +77,7 @@ async function createBuyer(req, res) {
 async function resendOTP(req, res) {
   try {
     const { email } = req.body;
-    const buyer = await Buyer.findOne(email);
+    const buyer = await Buyer.findOne({email});
 
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });
@@ -95,6 +94,7 @@ async function resendOTP(req, res) {
     res.status(200).send({
       message: "New OTP sent successfully",
       email: buyer.email,
+      OTP: buyer.OTP,
     });
   } catch (error) {
     console.error(error);
@@ -140,7 +140,7 @@ async function buyerLogin(req, res){
     try {
         const {email, password} = req.body;
         if(!email || !password){
-            res.status(400).send({message: "Invalid credential"});
+          return  res.status(400).send({message: "Invalid credential"});
         }
 
         const buyer = await Buyer.findOne({email});
@@ -148,7 +148,12 @@ async function buyerLogin(req, res){
             return res.status(404).send({error: "Buyer not found"});
         }
 
-        const otpverify = await Buyer.findOne({email, isVerified});
+        const validPassword = await bcrypt.compare(password, buyer.password);
+        if (!validPassword) {
+          return res.status(400).send({ message: "Invalid credentials" });
+        }
+
+        const otpverify = await Buyer.findOne({email, isVerified: true});
         if(!otpverify){
           return res.status(400).send({message: "Please verify your account"})
         };
@@ -168,7 +173,7 @@ async function buyerLogin(req, res){
           token,
           buyer: {
             id: buyer._id,
-            name: buyer._name,
+            name: buyer.name,
             email: buyer.email
           },
         });
@@ -225,7 +230,7 @@ async function createOrder(req, res){
      userID
     } = req.body;
 
-    const order = Menu.findOne(userID);
+    const order = Menu.findOne({userID});
 
     if(!order){
       return res.status(404).send({message: "Menu not found"})
@@ -257,7 +262,7 @@ async function createOrder(req, res){
 async function getOrders(req, res) {
   try {
     const { userID, email } = req.body;
-    const allOrder = await Menu.find();
+    const allOrder = await Order.find();
     const buyer = await Buyer.findById(email);
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });

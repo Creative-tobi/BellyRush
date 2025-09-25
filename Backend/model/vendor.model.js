@@ -29,7 +29,7 @@ const menuScema = new mongoose.Schema({
   description: { type: String, required: true },
   category: { type: String, required: true },
   price: { type: Number, required: true },
-  image: { type: String, default: "" },
+  profileImage: { type: String, default: "" },
   ingredients: { type: [String], required: true },
 });
 

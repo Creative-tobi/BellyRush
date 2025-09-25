@@ -1,7 +1,9 @@
-const nodeGeocoder = require("node-geocoder");
+const NodeGeocoder = require("node-geocoder");
 
-const option = "openstreetmap";
+const options = {
+  provider: "openstreetmap",
+};
 
-const geocoder = nodeGeocoder(option);
+const geocoder = NodeGeocoder(options);
 
 module.exports = geocoder;
