@@ -9,6 +9,7 @@ const {
   createMenu,
   updateMenu,
   deletemenu,
+  updateStatus,
 } = require("../controller/vendor.controller");
 
 const authmiddleware = require("../middleware/auth.middleware");
@@ -26,5 +27,6 @@ router.put("/updatevendor/:id", updateVendor);
 router.post("/createmenu", upload.single("profileImage"), createMenu);
 router.put("/updatemenu/:id", updateMenu);
 router.delete("/deletemenu/:id", deletemenu);
+router.put("/updatestatus",  updateStatus,)
 
 module.exports = router;

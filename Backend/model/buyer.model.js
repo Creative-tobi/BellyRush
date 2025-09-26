@@ -9,9 +9,23 @@ const buyerSchema = new mongoose.Schema({
   otpExpired: Date,
   isVerified: { type: Boolean, default: false },
   phone: { type: String, required: true, unique: true },
-  // address: { type: String, required: true },
   profileImage: { type: String, default: "" },
-  stripeId:{type: String}
+
+  // 🔹 Stripe integration fields
+  stripeCustomerId: { type: String }, // Customer object ID in Stripe
+  defaultPaymentMethod: { type: String }, // e.g. card ID
+  paymentHistory: [
+    {
+      paymentIntentId: { type: String },
+      amount: { type: Number },
+      currency: { type: String, default: "USD" },
+      status: { type: String }, // succeeded, pending, failed
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+
+  // Optional wallet/balance system if you want to track credits in-app
+  walletBalance: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model("Buyer", buyerSchema);

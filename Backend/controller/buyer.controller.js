@@ -179,7 +179,7 @@ async function buyerLogin(req, res){
         });
     } catch (error) {
         console.error(error);
-        res.status(500).send({error: "Internala server error"})
+        res.status(500).send({error: "Internal server error"})
     }
 };
 
@@ -215,62 +215,100 @@ async function getVendors(req, res){
 }
 
 //create order
-async function createOrder(req, res){
+// CREATE ORDER
+async function createOrder(req, res) {
   try {
-    const {
-     items,
-     deliveryaddress,
-     contact,
-     time,
-     totalamount,
-     status,
-     buyer,
-     vendor,
-     delivery,
-     userID
-    } = req.body;
+    const { menuId, deliveryaddress, contact, time, buyerId } = req.body;
 
-    const order = Menu.findOne({userID});
+    // find menu item
+    const menu = await Menu.findById(menuId).populate("userID"); // userID is vendor
+    if (!menu) {
+      return res.status(404).send({ message: "Menu not found" });
+    }
 
-    if(!order){
-      return res.status(404).send({message: "Menu not found"})
-    };
+    // find buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).send({ message: "Buyer not found" });
+    }
 
-    const newOrder = await Order.create({
-      items,
+    // calculate amount
+    const totalamount = menu.price;
+
+    const newOrder = new Order({
+      items: [
+        {
+          foodname: menu.foodname,
+          price: menu.price,
+          quantity: 1, 
+        },
+      ],
       deliveryaddress,
       contact,
       time,
       totalamount,
-      status,
-      buyer,
-      vendor,
-      delivery,
+      buyer: buyer._id,
+      vendor: menu.userID._id,
     });
 
-    newOrder.save();
+    await newOrder.save();
 
-    res.status(200).send({message: "Order createded successly"})
-
+    res.status(201).send({
+      message: "Order created successfully",
+      order: newOrder,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send({ error: "internal server error" });
+    res.status(500).send({ error: "Internal server error" });
   }
-};
+}
 
-//get orders
+// GET ORDERS (for a buyer)
 async function getOrders(req, res) {
   try {
-    const { userID, email } = req.body;
-    const allOrder = await Order.find();
-    const buyer = await Buyer.findById(email);
-    if (!buyer) {
-      return res.status(404).send({ message: "Buyer not found" });
+    const buyerId = req.user.id;
+    const orders = await Order.find({ buyer: buyerId })
+      .populate("buyer", "name email")
+      .populate("vendor", "restaurantName email")
+      .populate("delivery", "name phone");
+
+    if (!orders || orders.length === 0) {
+      return res.status(404).send({ message: "No orders found" });
     }
-    res.status(201).send({ message: "Order fetched", allOrder });
+
+    res.status(200).send({
+      message: "Orders fetched successfully",
+      orders,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send({ error: "internal server error" });
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+// UPDATE ORDER (e.g. status update by vendor or delivery)
+async function updateOrder(req, res) {
+  try {
+    const { id } = req.params; 
+    const { status, delivery } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    if (status) order.status = status;
+    if (delivery) order.delivery = delivery; 
+
+    await order.save();
+
+    res.status(200).send({
+      message: "Order updated successfully",
+      order,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
   }
 }
 
@@ -283,4 +321,5 @@ module.exports = {
   getVendors,
   createOrder,
   getOrders,
+  updateOrder,
 };

@@ -290,26 +290,24 @@ async function updateVendor(req, res) {
 };
 
 //creating menu
-async function createMenu(req, res){
+// Create Menu
+async function createMenu(req, res) {
   try {
-    const {
-      foodname,
-      description,
-      category,
-      price,
-      ingredients,
-      userID
-    } = req.body;
+    const { foodname, description, category, price, ingredients } = req.body;
 
-    const menu = Menu.findOne({userID});
+    // vendor ID should come from logged-in vendor (req.user.id)
+    const vendorId = req.user.id;
+
+    // ensure vendor exists
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).send({ message: "Vendor not found" });
+    }
+
     const profileImage = req.file ? req.file.path : null;
 
-
-    if(!menu){
-      return res.status(404).send({message: "Vendor not found"})
-    };
-
     const newMenu = await Menu.create({
+      vendor: vendorId,
       foodname,
       description,
       category,
@@ -318,68 +316,80 @@ async function createMenu(req, res){
       ingredients,
     });
 
-    newMenu.save();
-
-    res.status(200).send({message: "Menu added successly"})
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "internal server error" });
-  }
-};
-
-//updating menu
-async function updateMenu(req, res) {
-  try {
-    const {
-      userID,
-      foodname,
-      description,
-      category,
-      price,
-      image,
-      ingredients,
-    } = req.body;
-    const menu= await Menu.findOne({userID});
-
-    if (!menu) {
-      return res.status(404).send({ message: "Vendor not available" });
-    }
-
-    menu.image = image;
-    menu.description = description;
-    menu.foodname = foodname;
-    menu.price = price;
-    menu.category = category;
-    menu.ingredients = ingredients;
-    await menu.save();
-    return res
-      .status(200)
-      .send({ message: "Vendors details updated successful", menu });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "internal server error" });
-  }
-};
-
-//deleting menu
-async function deletemenu(req, res){
-  try {
-    const vendorID = req.user.id;
-    const vendor = await Vendor.findById(vendorID);
-    const menuToDelete = await Menu.findById(req.params.id);
-    if(!menuToDelete){
-      return res.status(404).send({error: "Menu not found"});
-    };
-
-    const deleted = await Menu.findByIdAndDelete(req.params.id);
-
-    return res.status(200).send({message: "Menu deleted successfuflly"});
+    res.status(201).send({
+      message: "Menu item created successfully",
+      menu: newMenu,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-};
+}
+
+// Update Menu
+async function updateMenu(req, res) {
+  try {
+    const { id } = req.params; // menu item id
+    const { foodname, description, category, price, ingredients } = req.body;
+
+    const menu = await Menu.findById(id);
+    if (!menu) {
+      return res.status(404).send({ message: "Menu item not found" });
+    }
+
+    // only allow vendor who owns the menu to update
+    if (menu.vendor.toString() !== req.user.id) {
+      return res.status(403).send({ message: "Unauthorized to update this menu" });
+    }
+
+    // update fields
+    if (foodname) menu.foodname = foodname;
+    if (description) menu.description = description;
+    if (category) menu.category = category;
+    if (price) menu.price = price;
+    if (ingredients) menu.ingredients = ingredients;
+    if (req.file) menu.profileImage = req.file.path;
+
+    await menu.save();
+
+    res.status(200).send({
+      message: "Menu item updated successfully",
+      menu,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+//deleting menu
+async function deletemenu(req, res) {
+  try {
+    const { id } = req.params; // menu item id
+
+    const menu = await Menu.findById(id);
+    if (!menu) {
+      return res.status(404).send({ message: "Menu item not found" });
+    }
+
+    // only vendor who owns the menu can delete
+    if (menu.vendor.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to delete this menu" });
+    }
+
+    await Menu.findByIdAndDelete(id);
+
+    res.status(200).send({
+      message: "Menu item deleted successfully",
+      deletedMenuId: id,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
 
 //updating order status
 
@@ -418,4 +428,5 @@ module.exports = {
   createMenu,
   updateMenu,
   deletemenu,
+  updateStatus,
 };

@@ -21,33 +21,77 @@ const vendorSchema = new mongoose.Schema({
   commission: { type: Number, default: 0 },
   payout: { type: Number, default: 0 },
   menu: { type: mongoose.Types.ObjectId, ref: "menu" },
+
+  // Stripe integration fields
+  stripeAccountId: { type: String },
+  payoutsEnabled: { type: Boolean, default: false }, 
+  defaultBankAccount: { type: String }, // Last 4 digits or ID of linked bank account
+  balance: { type: Number, default: 0 }, // Track available funds in-app (optional)
+
+  payoutHistory: [
+    {
+      transferId: { type: String }, // Stripe transfer/payout ID
+      amount: { type: Number },
+      currency: { type: String, default: "USD" },
+      status: { type: String }, // paid, pending, failed
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
 });
 
-const menuScema = new mongoose.Schema({
-  userID: { type: mongoose.Types.ObjectId, ref: "Vendor" },
-  foodname: { type: String, required: true },
-  description: { type: String, required: true },
-  category: { type: String, required: true },
-  price: { type: Number, required: true },
-  profileImage: { type: String, default: "" },
-  ingredients: { type: [String], required: true },
-});
+const menuScema = new mongoose.Schema(
+  {
+    vendor: { type: mongoose.Types.ObjectId, ref: "Vendor", required: true },
+    foodname: { type: String, required: true },
+    description: { type: String, required: true },
+    category: { type: String, required: true },
+    price: { type: Number, required: true },
+    profileImage: { type: String, default: "" },
+    ingredients: { type: [String], required: true },
+  },
+  { timestamps: true } // keeps createdAt & updatedAt
+);
 
-const Order = new mongoose.Schema({
-  userID: { type: mongoose.Types.ObjectId, ref: "menu" },
-  items: [],
-  deliveryaddress: { type: String, required: true },
-  contact: { type: String, required: true },
-  time: { type: Date, required: true },
-  totalamount: { type: Number, required: true },
-  status: { type: String, default: "pending" },
-  buyer: { type: mongoose.Types.ObjectId, ref: "Buyer" },
-  vendor: { type: mongoose.Types.ObjectId, ref: "Vendor" },
-  delivery: { type: mongoose.Types.ObjectId, ref: "Delivery", default: null },
-});
+const orderSchema = new mongoose.Schema(
+  {
+    buyer: { type: mongoose.Types.ObjectId, ref: "Buyer", required: true },
+    vendor: { type: mongoose.Types.ObjectId, ref: "Vendor", required: true },
+    delivery: { type: mongoose.Types.ObjectId, ref: "Delivery", default: null },
+
+    // items from menu
+    items: [
+      {
+        menuId: { type: mongoose.Types.ObjectId, ref: "Menu", required: true },
+        name: String,
+        price: Number,
+        quantity: Number,
+      },
+    ],
+
+    deliveryaddress: { type: String, required: true },
+    contact: { type: String, required: true },
+
+    totalamount: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ["pending", "paid", "in-progress", "completed", "cancelled"],
+      default: "pending",
+    },
+
+    // Stripe
+    paymentIntentId: { type: String },
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "processing", "succeeded", "failed"],
+      default: "unpaid",
+    },
+  },
+  { timestamps: true }
+);
+
 
 module.exports = {
-    Vendor: mongoose.model("Vendor", vendorSchema),
-    Menu: mongoose.model("Menu", menuScema),
-    Order: mongoose.model("Order", Order)
-}
+  Vendor: mongoose.model("Vendor", vendorSchema),
+  Menu: mongoose.model("Menu", menuScema),
+  Order: mongoose.model("Order", orderSchema),
+};
