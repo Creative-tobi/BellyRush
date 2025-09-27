@@ -54,14 +54,18 @@ const menuScema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    buyer: { type: mongoose.Types.ObjectId, ref: "Buyer", required: true },
-    vendor: { type: mongoose.Types.ObjectId, ref: "Vendor", required: true },
+    buyer: { type: mongoose.Types.ObjectId, ref: "Buyer" },
+    vendor: { type: mongoose.Types.ObjectId, ref: "Vendor" },
     delivery: { type: mongoose.Types.ObjectId, ref: "Delivery", default: null },
 
     // items from menu
     items: [
       {
-        menuId: { type: mongoose.Types.ObjectId, ref: "Menu", required: true },
+        menuId: {
+          type: mongoose.Types.ObjectId,
+          ref: "Menu",
+          required: true,
+        },
         name: String,
         price: Number,
         quantity: Number,

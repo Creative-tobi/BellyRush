@@ -23,7 +23,7 @@ router.get("/buyerprofile", authmiddleware, buyerProfile);
 router.post("/otpverify", verifyOTP);
 router.put("/updateotp", resendOTP);
 router.get("/restaurants", getVendors);
-router.post("/createorder/:id", createOrder);
+router.post("/createorder", createOrder);
 router.get("/getorders", getOrders);
 router.put("/updateorder", updateOrder);
 

@@ -293,14 +293,14 @@ async function updateVendor(req, res) {
 // Create Menu
 async function createMenu(req, res) {
   try {
-    const { foodname, description, category, price, ingredients } = req.body;
+    const { foodname, description, category, price, ingredients, vendor } = req.body;
 
     // vendor ID should come from logged-in vendor (req.user.id)
-    const vendorId = req.user.id;
+    // const vendorId = req.user.id;
 
     // ensure vendor exists
-    const vendor = await Vendor.findById(vendorId);
-    if (!vendor) {
+    const vendorId = await Vendor.findById(vendor);
+    if (!vendorId) {
       return res.status(404).send({ message: "Vendor not found" });
     }
 
@@ -329,7 +329,7 @@ async function createMenu(req, res) {
 // Update Menu
 async function updateMenu(req, res) {
   try {
-    const { id } = req.params; // menu item id
+    const { id } = req.params; 
     const { foodname, description, category, price, ingredients } = req.body;
 
     const menu = await Menu.findById(id);

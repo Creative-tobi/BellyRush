@@ -218,39 +218,46 @@ async function getVendors(req, res){
 // CREATE ORDER
 async function createOrder(req, res) {
   try {
-    const { menuId, deliveryaddress, contact, time, buyerId } = req.body;
+    const { menuId, deliveryaddress, contact, buyerId, quantity } = req.body;
 
-    // find menu item
-    const menu = await Menu.findById(menuId).populate("userID"); // userID is vendor
+    // 1. Find menu item
+    const menu = await Menu.findById(menuId).populate("vendor", "restaurantName email");
     if (!menu) {
       return res.status(404).send({ message: "Menu not found" });
     }
 
-    // find buyer
+    // 2. Find buyer
     const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });
     }
 
-    // calculate amount
-    const totalamount = menu.price;
+    // 3. Default quantity to 1 if not provided
+    const qty = quantity && quantity > 0 ? quantity : 1;
 
+    // 4. Calculate total amount
+    const totalamount = menu.price * qty;
+
+    // 5. Create order object according to schema
     const newOrder = new Order({
       items: [
         {
-          foodname: menu.foodname,
+          menuId: menu._id, // ✅ matches schema
+          name: menu.foodname,
           price: menu.price,
-          quantity: 1, 
+          quantity: qty,
         },
       ],
       deliveryaddress,
       contact,
-      time,
       totalamount,
       buyer: buyer._id,
-      vendor: menu.userID._id,
+      vendor: menu.vendor._id, // ✅ matches schema (was wrong before)
+      status: "pending",
+      paymentStatus: "unpaid",
     });
 
+    // 6. Save order
     await newOrder.save();
 
     res.status(201).send({
@@ -258,10 +265,11 @@ async function createOrder(req, res) {
       order: newOrder,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Create Order Error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
+
 
 // GET ORDERS (for a buyer)
 async function getOrders(req, res) {
