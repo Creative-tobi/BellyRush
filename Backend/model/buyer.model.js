@@ -11,20 +11,19 @@ const buyerSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true },
   profileImage: { type: String, default: "" },
 
-  // 🔹 Stripe integration fields
-  stripeCustomerId: { type: String }, // Customer object ID in Stripe
-  defaultPaymentMethod: { type: String }, // e.g. card ID
+  // Stripe integration
+  stripeCustomerId: { type: String },
+  defaultPaymentMethod: { type: String },
   paymentHistory: [
     {
       paymentIntentId: { type: String },
       amount: { type: Number },
       currency: { type: String, default: "USD" },
-      status: { type: String }, // succeeded, pending, failed
+      status: { type: String },
       createdAt: { type: Date, default: Date.now },
     },
   ],
 
-  // Optional wallet/balance system if you want to track credits in-app
   walletBalance: { type: Number, default: 0 },
 });
 

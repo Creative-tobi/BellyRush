@@ -9,6 +9,7 @@ const {
   createOrder,
   getOrders,
   updateOrder,
+  checkoutOrder,
 } = require("../controller/buyer.controller");
 
 const upload = require("../config/multer");
@@ -26,5 +27,6 @@ router.get("/restaurants", getVendors);
 router.post("/createorder", createOrder);
 router.get("/getorders", getOrders);
 router.put("/updateorder", updateOrder);
+router.post("/ordercheckout", checkoutOrder);
 
 module.exports = router;

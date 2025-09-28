@@ -10,16 +10,27 @@ const sendMail = require("../service/nodemailer");
 //register buyer
 async function createBuyer(req, res) {
   try {
-    const { name, email, password, OTP, phone, } =
-      req.body;
-     
-      const profileImage = req.file ? req.file.path : null;
-   
-      const existingBuyer = await Buyer.findOne({ email });
+    const { name, email, password, OTP, phone } = req.body;
+
+    // ✅ Validation
+    if (!name || !email || !password || !phone) {
+      return res.status(400).send({ error: "All fields are required" });
+    }
+    if (typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).send({ error: "Invalid email format" });
+    }
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .send({ error: "Password must be at least 6 characters long" });
+    }
+
+    const profileImage = req.file ? req.file.path : null;
+
+    const existingBuyer = await Buyer.findOne({ email });
     if (existingBuyer) {
       return res.status(400).send({ error: "Buyer email already exist" });
     }
-
 
     //hashing password
     const salt = await bcrypt.genSalt(10);
@@ -53,9 +64,6 @@ async function createBuyer(req, res) {
       }
     );
 
-    //messages sent through node mailer
-
-    //response
     res.status(200).send({
       message: "You have successfull registered on BellyRush as a buyer",
       token,
@@ -77,8 +85,13 @@ async function createBuyer(req, res) {
 async function resendOTP(req, res) {
   try {
     const { email } = req.body;
-    const buyer = await Buyer.findOne({email});
 
+    // ✅ Validation
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).send({ message: "Valid email is required" });
+    }
+
+    const buyer = await Buyer.findOne({ email });
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });
     }
@@ -88,8 +101,6 @@ async function resendOTP(req, res) {
     buyer.OTP = otp;
     buyer.otpExpired = Date.now() + 10 * 60 * 1000;
     await buyer.save();
-
-    //email sendign
 
     res.status(200).send({
       message: "New OTP sent successfully",
@@ -106,8 +117,12 @@ async function resendOTP(req, res) {
 async function verifyOTP(req, res) {
   const { email, OTP } = req.body;
   try {
+    // ✅ Validation
     if (!email || !OTP) {
-      return res.status(400).send({ message: "Invalid credentials" });
+      return res.status(400).send({ message: "Email and OTP are required" });
+    }
+    if (isNaN(OTP)) {
+      return res.status(400).send({ message: "OTP must be numeric" });
     }
 
     const buyer = await Buyer.findOne({ email });
@@ -116,12 +131,12 @@ async function verifyOTP(req, res) {
     }
 
     if (buyer.OTP !== Number(OTP))
-      return res.status(400).send({ message: "Invalid OTp" });
+      return res.status(400).send({ message: "Invalid OTP" });
 
     if (buyer.otpExpired < Date.now())
       return res
         .status(400)
-        .send({ message: "OTP expires, please request a new one" });
+        .send({ message: "OTP expired, please request a new one" });
 
     buyer.isVerified = true;
     buyer.OTP = null;
@@ -136,133 +151,170 @@ async function verifyOTP(req, res) {
 }
 
 //buyer login
-async function buyerLogin(req, res){
-    try {
-        const {email, password} = req.body;
-        if(!email || !password){
-          return  res.status(400).send({message: "Invalid credential"});
-        }
-
-        const buyer = await Buyer.findOne({email});
-        if(!buyer){
-            return res.status(404).send({error: "Buyer not found"});
-        }
-
-        const validPassword = await bcrypt.compare(password, buyer.password);
-        if (!validPassword) {
-          return res.status(400).send({ message: "Invalid credentials" });
-        }
-
-        const otpverify = await Buyer.findOne({email, isVerified: true});
-        if(!otpverify){
-          return res.status(400).send({message: "Please verify your account"})
-        };
-
-        const token = jwt.sign(
-          {
-            id: buyer._id, role: "buyer"
-          },
-          process.env.JWT_SECRET,
-          {
-            expiresIn: "2h"
-          }
-        );
-
-        res.status(200).send({
-          message: "Login successful",
-          token,
-          buyer: {
-            id: buyer._id,
-            name: buyer.name,
-            email: buyer.email
-          },
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send({error: "Internal server error"})
-    }
-};
-
-//Buyer's profile
-async function buyerProfile(req, res){
+async function buyerLogin(req, res) {
   try {
-    const buyerID = req.user.id;
-    const buyer = await Buyer.findById(buyerID).select("-password");
+    const { email, password } = req.body;
 
-    if (!buyer){
-      return res.status(400).send({message: "Buyer not found"});
-    };
+    // ✅ Validation
+    if (!email || !password) {
+      return res.status(400).send({ message: "Email and password required" });
+    }
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .send({ message: "Password must be at least 6 characters" });
+    }
 
-    res.status(200).send({message: "Buyer profile", buyer});
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(404).send({ error: "Buyer not found" });
+    }
+
+    const validPassword = await bcrypt.compare(password, buyer.password);
+    if (!validPassword) {
+      return res.status(400).send({ message: "Invalid credentials" });
+    }
+
+    const otpverify = await Buyer.findOne({ email, isVerified: true });
+    if (!otpverify) {
+      return res.status(400).send({ message: "Please verify your account" });
+    }
+
+    const token = jwt.sign(
+      {
+        id: buyer._id,
+        role: "buyer",
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "2h",
+      }
+    );
+
+    res.status(200).send({
+      message: "Login successful",
+      token,
+      buyer: {
+        id: buyer._id,
+        name: buyer.name,
+        email: buyer.email,
+      },
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send({error: "internal server error"});
+    res.status(500).send({ error: "Internal server error" });
   }
 }
 
+//Buyer's profile
+async function buyerProfile(req, res) {
+  try {
+    const buyerID = req.user.id;
+
+    if (!buyerID) {
+      return res.status(400).send({ message: "Buyer ID missing in token" });
+    }
+
+    const buyer = await Buyer.findById(buyerID).select("-password");
+    if (!buyer) {
+      return res.status(404).send({ message: "Buyer not found" });
+    }
+
+    res.status(200).send({ message: "Buyer profile", buyer });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
 
 //getting all vendors
-async function getVendors(req, res){
+async function getVendors(req, res) {
   try {
     const allVendors = await Vendor.find().select("-password");
+    if (!allVendors || allVendors.length === 0) {
+      return res.status(404).send({ message: "No vendors found" });
+    }
     res
       .status(200)
       .send({ Message: "Available vendors fetch", vendor: allVendors });
   } catch (error) {
-     console.error(error);
-     res.status(500).send({ error: "internal server error" });
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
   }
 }
 
-//create order
 // CREATE ORDER
 async function createOrder(req, res) {
   try {
     const { menuId, deliveryaddress, contact, buyerId, quantity } = req.body;
 
-    // 1. Find menu item
-    const menu = await Menu.findById(menuId).populate("vendor", "restaurantName email");
+    // ✅ Validation
+    if (!menuId || !buyerId || !deliveryaddress || !contact) {
+      return res
+        .status(400)
+        .send({
+          message: "menuId, buyerId, deliveryaddress, contact required",
+        });
+    }
+    if (quantity && quantity <= 0) {
+      return res
+        .status(400)
+        .send({ message: "Quantity must be greater than 0" });
+    }
+
+    const menu = await Menu.findById(menuId).populate(
+      "vendor",
+      "restaurantName email"
+    );
     if (!menu) {
       return res.status(404).send({ message: "Menu not found" });
     }
 
-    // 2. Find buyer
     const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });
     }
 
-    // 3. Default quantity to 1 if not provided
-    const qty = quantity && quantity > 0 ? quantity : 1;
+    let order = await Order.findOne({ buyer: buyerId, status: "pending" });
 
-    // 4. Calculate total amount
-    const totalamount = menu.price * qty;
+    if (!order) {
+      order = new Order({
+        buyer: buyerId,
+        vendor: menu.vendor._id,
+        items: [],
+        deliveryaddress,
+        contact,
+        totalamount: 0,
+        status: "pending",
+        paymentStatus: "unpaid",
+      });
+    }
 
-    // 5. Create order object according to schema
-    const newOrder = new Order({
-      items: [
-        {
-          menuId: menu._id, // ✅ matches schema
-          name: menu.foodname,
-          price: menu.price,
-          quantity: qty,
-        },
-      ],
-      deliveryaddress,
-      contact,
-      totalamount,
-      buyer: buyer._id,
-      vendor: menu.vendor._id, // ✅ matches schema (was wrong before)
-      status: "pending",
-      paymentStatus: "unpaid",
-    });
+    const existingItem = order.items.find(
+      (item) => item.menuId.toString() === menuId
+    );
 
-    // 6. Save order
-    await newOrder.save();
+    if (existingItem) {
+      existingItem.quantity += quantity || 1;
+    } else {
+      order.items.push({
+        menuId: menu._id,
+        name: menu.foodname,
+        price: menu.price,
+        quantity: quantity || 1,
+      });
+    }
+
+    order.totalamount = order.items.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
+
+    await order.save();
 
     res.status(201).send({
-      message: "Order created successfully",
-      order: newOrder,
+      message: "Item added to order successfully",
+      order,
     });
   } catch (error) {
     console.error("Create Order Error:", error);
@@ -270,11 +322,15 @@ async function createOrder(req, res) {
   }
 }
 
-
-// GET ORDERS (for a buyer)
+// GET ORDERS
 async function getOrders(req, res) {
   try {
     const buyerId = req.user.id;
+
+    if (!buyerId) {
+      return res.status(400).send({ message: "Buyer ID missing in token" });
+    }
+
     const orders = await Order.find({ buyer: buyerId })
       .populate("buyer", "name email")
       .populate("vendor", "restaurantName email")
@@ -294,11 +350,15 @@ async function getOrders(req, res) {
   }
 }
 
-// UPDATE ORDER (e.g. status update by vendor or delivery)
+// UPDATE ORDER
 async function updateOrder(req, res) {
   try {
-    const { id } = req.params; 
+    const { id } = req.params;
     const { status, delivery } = req.body;
+
+    if (!id) {
+      return res.status(400).send({ message: "Order ID is required" });
+    }
 
     const order = await Order.findById(id);
     if (!order) {
@@ -306,7 +366,7 @@ async function updateOrder(req, res) {
     }
 
     if (status) order.status = status;
-    if (delivery) order.delivery = delivery; 
+    if (delivery) order.delivery = delivery;
 
     await order.save();
 
@@ -316,6 +376,51 @@ async function updateOrder(req, res) {
     });
   } catch (error) {
     console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+// CHECKOUT ORDER
+async function checkoutOrder(req, res) {
+  try {
+    const { orderId, paymentIntentId } = req.body;
+
+    // ✅ Validation
+    if (!orderId) {
+      return res.status(400).send({ message: "orderId is required" });
+    }
+    if (!paymentIntentId) {
+      return res.status(400).send({ message: "paymentIntentId is required" });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    if (order.paymentStatus === "succeeded") {
+      return res.status(400).send({ message: "Order already paid" });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (
+      paymentIntent.status !== "succeeded" &&
+      paymentIntent.status !== "requires_capture"
+    ) {
+      return res.status(400).send({ message: "Payment not successful yet" });
+    }
+
+    order.paymentStatus = "succeeded";
+    order.status = "paid";
+    await order.save();
+
+    res.status(200).send({
+      message: "Payment confirmed, order marked as paid",
+      order,
+    });
+  } catch (error) {
+    console.error("Checkout Error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -330,4 +435,5 @@ module.exports = {
   createOrder,
   getOrders,
   updateOrder,
+  checkoutOrder,
 };

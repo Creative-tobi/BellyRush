@@ -22,7 +22,7 @@ const vendorSchema = new mongoose.Schema({
   payout: { type: Number, default: 0 },
   menu: { type: mongoose.Types.ObjectId, ref: "menu" },
 
-  // Stripe integration fields
+  // Stripe integration 
   stripeAccountId: { type: String },
   payoutsEnabled: { type: Boolean, default: false }, 
   defaultBankAccount: { type: String }, // Last 4 digits or ID of linked bank account
@@ -75,7 +75,7 @@ const orderSchema = new mongoose.Schema(
     deliveryaddress: { type: String, required: true },
     contact: { type: String, required: true },
 
-    totalamount: { type: Number, required: true },
+    totalamount: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ["pending", "paid", "in-progress", "completed", "cancelled"],

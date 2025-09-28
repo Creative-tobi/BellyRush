@@ -201,6 +201,154 @@ async function adminProfile(req, res){
   }
 }
 
+//get all vendor
+async function getVendor(req, res) {
+  try {
+    const allVendor = await Vendor.find().select("-password");
+    res.status(200).send({ message: "All vendor fetched sussessfully", allVendor });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+//get all buyer
+async function getBuyer(req, res) {
+  try {
+    const allBuyer = await Buyer.find().select("-password");
+    res.status(200).send({message: "All buyer fetched successfully", allBuyer});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+//get all delivery
+async function getDelivery(req, res) {
+  try {
+    const allDelivery = await Delivery.find().select("-password");
+    res.status(200).send({message: "All delivery fetched successfully", allDelivery});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+//get all menu
+async function getMenu(req, res) {
+  try {
+    const allMenu = await Menu.find().select("-password");
+    res.status(200).send({message: "All menu fetched successfully", allMenu});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+//get all order
+async function getOrder(req, res) {
+  try {
+    const allOrder = await Order.find().select("-password");
+    res.status(200).send({message: "All order fetched successfully", allOrder});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+//deleting vendor
+async function deleteVendor(req, res) {
+  try {
+    const adminID = req.user.id;
+    const admin = await Admin.findById(adminID);
+    const vendorToDelete = await Vendor.findById(req.params.id);
+    if(!vendorToDelete){
+      return res.status(404).send({error: "Vendor not found"});
+    }
+
+    const deletedVendor = await Vendor.findByIdAndDelete(req.params.id);
+    res.status(200).send({message: "Vendor deleted successfully", deletedVendor});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+
+//deleting buyer
+async function deleteBuyer(req, res) {
+  try {
+    const adminID = req.user.id;
+    const admin = await Admin.findById(adminID);
+    const BuyerToDelete = await Buyer.findById(req.params.id);
+    if(!BuyerToDelete){
+      return res.status(404).send({error: "Buyer not found"});
+    }
+
+    const deletedBuyer = await Buyer.findByIdAndDelete(req.params.id);
+    res.status(200).send({message: "Buyer deleted successfully", deletedBuyer});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+
+//deleting delivery
+async function deleteDelivery(req, res) {
+  try {
+    const adminID = req.user.id;
+    const admin = await Admin.findById(adminID);
+    const DeliveryToDelete = await Delivery.findById(req.params.id);
+    if(!DeliveryToDelete){
+      return res.status(404).send({error: "Delivery not found"});
+    }
+
+    const deletedDelivery = await Delivery.findByIdAndDelete(req.params.id);
+    res.status(200).send({message: "Delivery deleted successfully", deletedDelivery});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+
+//deleting menu
+async function deleteMenu(req, res) {
+  try {
+    const adminID = req.user.id;
+    const admin = await Admin.findById(adminID);
+    const MenuToDelete = await Menu.findById(req.params.id);
+    if(!MenuToDelete){
+      return res.status(404).send({error: "Menu not found"});
+    }
+
+    const deletedMenu = await Menu.findByIdAndDelete(req.params.id);
+    res.status(200).send({message: "Menu deleted successfully", deletedMenu});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
+
+
+//deleting order
+async function deleteOrder(req, res) {
+  try {
+    const adminID = req.user.id;
+    const admin = await Admin.findById(adminID);
+    const OrderToDelete = await Order.findById(req.params.id);
+    if(!OrderToDelete){
+      return res.status(404).send({error: "Order not found"});
+    }
+
+    const deletedOrder = await Order.findByIdAndDelete(req.params.id);
+    res.status(200).send({message: "Order deleted successfully", deletedOrder});
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "internal server error" });
+  }
+}
 
 module.exports = {
   createAdmin,
@@ -208,4 +356,14 @@ module.exports = {
   verifyOTP,
   adminLogin,
   adminProfile,
+  getVendor,
+  getBuyer,
+  getDelivery,
+  getMenu,
+  getOrder,
+  deleteVendor,
+  deleteBuyer,
+  deleteDelivery,
+  deleteMenu,
+  deleteOrder,
 };
