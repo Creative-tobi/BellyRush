@@ -1,3 +1,16 @@
+/* @import "tailwindcss"; */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@plugin "daisyui";
+
+.clip-wave-bottom {
+  clip-path: polygon(0 20%, 100% 0%, 100% 100%, 0% 100%);
+}
+
+.clip-wave {
+  clip-path: polygon(0 0%, 100% 0%, 100% 85%, 50% 100%, 0 85%);
+}
+
+

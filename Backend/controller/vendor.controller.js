@@ -5,7 +5,65 @@ const sendmail = require("../service/nodemailer");
 const Buyer = require("../model/buyer.model");
 const Delivery = require("../model/delivery.model");
 const { Vendor, Menu, Order } = require("../model/vendor.model");
-const upload = require("../config/multer")
+const upload = require("../config/multer");
+
+// Validation helper functions
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone) => {
+  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+  return phoneRegex.test(phone);
+};
+
+// Nodemailer email templates
+const sendOTPEmail = async (email, otp, restaurantName) => {
+  try {
+    await sendmail({
+      to: email,
+      subject: "Your BellyRush Vendor OTP Verification",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #4CAF50;">Welcome to BellyRush, ${restaurantName}!</h2>
+          <p>Your OTP verification code is:</p>
+          <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This OTP will expire in 10 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+          <hr>
+          <p>Best regards,<br>BellyRush Team</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Failed to send OTP email:", error);
+    throw new Error("Failed to send verification email");
+  }
+};
+
+const sendVerificationSuccessEmail = async (email, restaurantName) => {
+  try {
+    await sendmail({
+      to: email,
+      subject: "BellyRush Vendor Account Verified",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #4CAF50;">Account Verified Successfully!</h2>
+          <p>Hello ${restaurantName} team,</p>
+          <p>Your BellyRush vendor account has been successfully verified.</p>
+          <p>You can now start adding menu items and accepting orders from customers!</p>
+          <hr>
+          <p>Best regards,<br>BellyRush Team</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.warn("Failed to send verification success email:", error.message);
+  }
+};
 
 //register vendor
 async function createVendor(req, res) {
@@ -14,29 +72,48 @@ async function createVendor(req, res) {
       restaurantName,
       email,
       password,
-      OTP,
       phone,
       address,
       description,
       hours,
       Cuisine,
-      status,
+      status = "inactive",
       deliveryarea,
-      earnings,
-      rating,
-      reviews,
-      commission,
-      payout,
-      menu,
+      earnings = 0,
+      rating = 0,
+      reviews = [],
+      commission = 0,
+      payout = 0,
     } = req.body;
-    
+
     const profileImage = req.file ? req.file.path : null;
+
+    // ✅ Enhanced Validation
+    if (!restaurantName || !email || !password || !phone || !address) {
+      return res.status(400).send({
+        error:
+          "Restaurant name, email, password, phone, and address are required",
+      });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).send({ error: "Invalid email format" });
+    }
+
+    if (!validatePhone(phone)) {
+      return res.status(400).send({ error: "Invalid phone number format" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .send({ error: "Password must be at least 6 characters long" });
+    }
 
     const existingVendor = await Vendor.findOne({ email });
     if (existingVendor) {
-      return res.status(400).send({ error: "Vendor's email already exist" });
+      return res.status(400).send({ error: "Vendor's email already exists" });
     }
-
 
     //hashing password
     const salt = await bcrypt.genSalt(10);
@@ -44,7 +121,7 @@ async function createVendor(req, res) {
 
     //creating OTP
     const otp = Math.floor(1000 + Math.random() * 9000);
-    console.log(otp);
+    console.log("Generated OTP:", otp);
 
     const newVendor = new Vendor({
       restaurantName,
@@ -57,7 +134,6 @@ async function createVendor(req, res) {
       description,
       hours,
       commission,
-      menu,
       Cuisine,
       status,
       deliveryarea,
@@ -70,11 +146,22 @@ async function createVendor(req, res) {
 
     await newVendor.save();
 
+    // Send OTP email
+    try {
+      await sendOTPEmail(email, otp, restaurantName);
+    } catch (emailError) {
+      console.warn(
+        "Email sending failed, but vendor was created:",
+        emailError.message
+      );
+      // Don't fail the entire registration if email fails
+    }
+
     //generate token
     const token = jwt.sign(
       {
         id: newVendor._id,
-        role: "vendor man",
+        role: "vendor",
       },
       process.env.JWT_SECRET,
       {
@@ -82,17 +169,14 @@ async function createVendor(req, res) {
       }
     );
 
-    //messages sent through node mailer
-
-    //response
-    res.status(200).send({
-      message: "You have successfull registered on BellyRush as a vendor ",
+    res.status(201).send({
+      message:
+        "You have successfully registered on BellyRush as a vendor. Please check your email for OTP verification.",
       token,
-      VideoEncoder: {
+      vendor: {
         id: newVendor._id,
         restaurantName: newVendor.restaurantName,
         email: newVendor.email,
-        OTP: newVendor.OTP,
         phone: newVendor.phone,
         address: newVendor.address,
         status: newVendor.status,
@@ -105,11 +189,13 @@ async function createVendor(req, res) {
         reviews: newVendor.reviews,
         commission: newVendor.commission,
         payout: newVendor.payout,
-        menu: newVendor.menu,
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Vendor registration error:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).send({ error: "Invalid input data" });
+    }
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -118,10 +204,25 @@ async function createVendor(req, res) {
 async function resendOTP(req, res) {
   try {
     const { email } = req.body;
-    const vendor = await Vendor.findOne({email});
+
+    // ✅ Enhanced Validation
+    if (!email) {
+      return res.status(400).send({ message: "Email is required" });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).send({ message: "Valid email is required" });
+    }
+
+    const vendor = await Vendor.findOne({ email });
 
     if (!vendor) {
       return res.status(404).send({ message: "Vendor not found" });
+    }
+
+    // Check if account is already verified
+    if (vendor.isVerified) {
+      return res.status(400).send({ message: "Account is already verified" });
     }
 
     //generate new OTP
@@ -130,15 +231,20 @@ async function resendOTP(req, res) {
     vendor.otpExpired = Date.now() + 10 * 60 * 1000;
     await vendor.save();
 
-    //email sending
+    // Send OTP email
+    try {
+      await sendOTPEmail(email, otp, vendor.restaurantName);
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError);
+      return res.status(500).send({ message: "Failed to send OTP email" });
+    }
 
     res.status(200).send({
       message: "New OTP sent successfully",
       email: vendor.email,
-      OTP: vendor.OTP,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Resend OTP error:", error);
     res.status(500).send({ message: "Internal server error" });
   }
 }
@@ -147,8 +253,17 @@ async function resendOTP(req, res) {
 async function verifyOTP(req, res) {
   const { email, OTP } = req.body;
   try {
+    // ✅ Enhanced Validation
     if (!email || !OTP) {
-      return res.status(400).send({ message: "Invalid credentials" });
+      return res.status(400).send({ message: "Email and OTP are required" });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).send({ message: "Valid email is required" });
+    }
+
+    if (!/^\d{4}$/.test(OTP)) {
+      return res.status(400).send({ message: "OTP must be a 4-digit number" });
     }
 
     const vendor = await Vendor.findOne({ email });
@@ -156,37 +271,66 @@ async function verifyOTP(req, res) {
       return res.status(404).send({ message: "Vendor not available" });
     }
 
+    // Check if already verified
+    if (vendor.isVerified) {
+      return res.status(400).send({ message: "Account is already verified" });
+    }
+
     if (vendor.OTP !== Number(OTP))
-      return res.status(400).send({ message: "Invalid OTp" });
+      return res.status(400).send({ message: "Invalid OTP" });
 
     if (vendor.otpExpired < Date.now())
       return res
         .status(400)
-        .send({ message: "OTP expires, please request a new one" });
+        .send({ message: "OTP expired, please request a new one" });
 
     vendor.isVerified = true;
     vendor.OTP = null;
     vendor.otpExpired = null;
     await vendor.save();
 
+    // Send verification success email
+    try {
+      await sendVerificationSuccessEmail(email, vendor.restaurantName);
+    } catch (emailError) {
+      console.warn(
+        "Failed to send verification success email:",
+        emailError.message
+      );
+    }
+
     res.status(200).send({ message: "Account verified successfully" });
   } catch (error) {
-    console.error(error);
+    console.error("OTP verification error:", error);
     res.status(500).send({ message: "Internal server error" });
   }
 }
 
-//Delivery login
+//Vendor login
 async function vendorLogin(req, res) {
   try {
     const { email, password } = req.body;
+
+    // ✅ Enhanced Validation
     if (!email || !password) {
-    return  res.status(400).send({ message: "Invalid credential" });
+      return res
+        .status(400)
+        .send({ message: "Email and password are required" });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).send({ message: "Valid email is required" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .send({ message: "Password must be at least 6 characters" });
     }
 
     const vendor = await Vendor.findOne({ email });
     if (!vendor) {
-      return res.status(404).send({ error: "Delivery man not found" });
+      return res.status(404).send({ error: "Vendor not found" });
     }
 
     const validPassword = await bcrypt.compare(password, vendor.password);
@@ -194,8 +338,7 @@ async function vendorLogin(req, res) {
       return res.status(400).send({ message: "Invalid credentials" });
     }
 
-    const otpverify = await Vendor.findOne({ email, isVerified: true });
-    if (!otpverify) {
+    if (!vendor.isVerified) {
       return res.status(400).send({ message: "Please verify your account" });
     }
 
@@ -217,38 +360,49 @@ async function vendorLogin(req, res) {
         id: vendor._id,
         restaurantName: vendor.restaurantName,
         email: vendor.email,
+        status: vendor.status,
+        rating: vendor.rating,
+        earnings: vendor.earnings,
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Vendor login error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
 
-//Delivery man's profile
+//Vendor's profile
 async function vendorProfile(req, res) {
   try {
     const vendorID = req.user.id;
     const vendor = await Vendor.findById(vendorID).select("-password");
 
     if (!vendor) {
-      return res.status(400).send({ message: "Vendor not found" });
+      return res.status(404).send({ message: "Vendor not found" });
     }
 
     res.status(200).send({ message: "Vendor profile", vendor });
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "internal server error" });
+    console.error("Vendor profile error:", error);
+    res.status(500).send({ error: "Internal server error" });
   }
 }
 
-//updating vendors details
-
+//updating vendor details
 async function updateVendor(req, res) {
   try {
-    // const { id } = req.user.id;
+    const { email } = req.body;
+
+    // ✅ Enhanced Validation
+    if (!email) {
+      return res.status(400).send({ message: "Email is required" });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).send({ message: "Valid email is required" });
+    }
+
     const {
-      email,
       profileImage,
       description,
       hours,
@@ -261,53 +415,91 @@ async function updateVendor(req, res) {
       payout,
       menu,
     } = req.body;
-    const restaurant = await Vendor.findOne({email});
+
+    const restaurant = await Vendor.findOne({ email });
 
     if (!restaurant) {
-      return res.status(404).send({ message: "Vendr not available" });
+      return res.status(404).send({ message: "Vendor not available" });
     }
 
-    restaurant.profileImage = profileImage;
-    restaurant.description = description;
-    restaurant.hours = hours;
-    restaurant.status = status;
-    restaurant.Cuisine = Cuisine;
-    restaurant.deliveryarea = deliveryarea;
-    restaurant.rating = rating;
-    restaurant.reviews = reviews;
-    restaurant.commission = commission;
-    restaurant.payout = payout;
-    restaurant.menu = menu;
+    // Ensure only the logged-in vendor can update their own details
+    if (restaurant._id.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to update this vendor" });
+    }
+
+    // Update fields only if provided
+    if (profileImage !== undefined) restaurant.profileImage = profileImage;
+    if (description !== undefined) restaurant.description = description;
+    if (hours !== undefined) restaurant.hours = hours;
+    if (status !== undefined) restaurant.status = status;
+    if (Cuisine !== undefined) restaurant.Cuisine = Cuisine;
+    if (deliveryarea !== undefined) restaurant.deliveryarea = deliveryarea;
+    if (rating !== undefined) restaurant.rating = rating;
+    if (reviews !== undefined) restaurant.reviews = reviews;
+    if (commission !== undefined) restaurant.commission = commission;
+    if (payout !== undefined) restaurant.payout = payout;
+    if (menu !== undefined) restaurant.menu = menu;
 
     await restaurant.save();
     return res
       .status(200)
-      .send({ message: "Vendors details updated successful", restaurant });
+      .send({
+        message: "Vendor details updated successfully",
+        vendor: restaurant,
+      });
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "internal server error" });
+    console.error("Update vendor error:", error);
+    res.status(500).send({ error: "Internal server error" });
   }
-};
+}
 
 //creating menu
 // Create Menu
 async function createMenu(req, res) {
   try {
-    const { foodname, description, category, price, ingredients, vendor } = req.body;
+    const { foodname, description, category, price, ingredients, vendor } =
+      req.body;
 
-    // vendor ID should come from logged-in vendor (req.user.id)
-    // const vendorId = req.user.id;
+    // ✅ Enhanced Validation
+    if (!foodname || !price || !vendor) {
+      return res.status(400).send({
+        message: "Food name, price, and vendor ID are required",
+      });
+    }
 
-    // ensure vendor exists
-    const vendorId = await Vendor.findById(vendor);
-    if (!vendorId) {
+    if (isNaN(price) || price <= 0) {
+      return res
+        .status(400)
+        .send({ message: "Price must be a positive number" });
+    }
+
+    // Ensure vendor exists and is verified
+    const vendorDoc = await Vendor.findById(vendor);
+    if (!vendorDoc) {
       return res.status(404).send({ message: "Vendor not found" });
+    }
+
+    if (!vendorDoc.isVerified) {
+      return res
+        .status(400)
+        .send({
+          message: "Vendor account must be verified to create menu items",
+        });
+    }
+
+    // Ensure only the logged-in vendor can create menu items for their restaurant
+    if (vendorDoc._id.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to create menu for this vendor" });
     }
 
     const profileImage = req.file ? req.file.path : null;
 
     const newMenu = await Menu.create({
-      vendor: vendorId,
+      vendor: vendorDoc._id,
       foodname,
       description,
       category,
@@ -321,7 +513,10 @@ async function createMenu(req, res) {
       menu: newMenu,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Create menu error:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).send({ error: "Invalid menu data" });
+    }
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -329,8 +524,15 @@ async function createMenu(req, res) {
 // Update Menu
 async function updateMenu(req, res) {
   try {
-    const { id } = req.params; 
+    const { id } = req.params;
     const { foodname, description, category, price, ingredients } = req.body;
+
+    // ✅ Enhanced Validation
+    if (price !== undefined && (isNaN(price) || price <= 0)) {
+      return res
+        .status(400)
+        .send({ message: "Price must be a positive number" });
+    }
 
     const menu = await Menu.findById(id);
     if (!menu) {
@@ -339,15 +541,17 @@ async function updateMenu(req, res) {
 
     // only allow vendor who owns the menu to update
     if (menu.vendor.toString() !== req.user.id) {
-      return res.status(403).send({ message: "Unauthorized to update this menu" });
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to update this menu" });
     }
 
-    // update fields
-    if (foodname) menu.foodname = foodname;
-    if (description) menu.description = description;
-    if (category) menu.category = category;
-    if (price) menu.price = price;
-    if (ingredients) menu.ingredients = ingredients;
+    // update fields only if provided
+    if (foodname !== undefined) menu.foodname = foodname;
+    if (description !== undefined) menu.description = description;
+    if (category !== undefined) menu.category = category;
+    if (price !== undefined) menu.price = price;
+    if (ingredients !== undefined) menu.ingredients = ingredients;
     if (req.file) menu.profileImage = req.file.path;
 
     await menu.save();
@@ -357,7 +561,7 @@ async function updateMenu(req, res) {
       menu,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Update menu error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -386,37 +590,111 @@ async function deletemenu(req, res) {
       deletedMenuId: id,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Delete menu error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
 
 //updating order status
-
 async function updateStatus(req, res) {
   try {
-    const {id} = req.params.id
-    const {
-     status
-    } = req.body;
-    const orderstatus = await Order.findOne({id});
+    const { id } = req.params; // Fixed: was req.params.id instead of req.params
+    const { status } = req.body;
 
-    if (!orderstatus) {
-      return res
-        .status(404)
-        .send({ message: "Delivery man not available not available" });
+    // ✅ Enhanced Validation
+    if (!id) {
+      return res.status(400).send({ message: "Order ID is required" });
     }
 
-    orderstatus.status = status;
-    await orderstatus.save();
-    return res
-      .status(200)
-      .send({ message: "Order status updated details updated successful", delivery });
+    if (!status) {
+      return res.status(400).send({ message: "Status is required" });
+    }
+
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "preparing",
+      "ready",
+      "delivered",
+      "cancelled",
+    ];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).send({
+        message: `Invalid status. Valid statuses are: ${validStatuses.join(
+          ", "
+        )}`,
+      });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    // Ensure only the vendor who owns the order can update its status
+    if (order.vendor.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to update this order" });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).send({
+      message: "Order status updated successfully",
+      order: {
+        id: order._id,
+        status: order.status,
+        buyer: order.buyer,
+        items: order.items,
+        totalamount: order.totalamount,
+      },
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "internal server error" });
+    console.error("Update order status error:", error);
+    res.status(500).send({ error: "Internal server error" });
   }
-};
+}
+
+// Get vendor's orders
+async function getVendorOrders(req, res) {
+  try {
+    const vendorId = req.user.id;
+
+    const orders = await Order.find({ vendor: vendorId })
+      .populate("buyer", "name email phone")
+      .populate("delivery", "name phone")
+      .sort({ createdAt: -1 });
+
+    res.status(200).send({
+      message: "Vendor orders fetched successfully",
+      orders,
+      count: orders.length,
+    });
+  } catch (error) {
+    console.error("Get vendor orders error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+// Get vendor's menu
+async function getVendorMenu(req, res) {
+  try {
+    const vendorId = req.user.id;
+
+    const menuItems = await Menu.find({ vendor: vendorId });
+
+    res.status(200).send({
+      message: "Vendor menu fetched successfully",
+      menu: menuItems,
+      count: menuItems.length,
+    });
+  } catch (error) {
+    console.error("Get vendor menu error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
 
 module.exports = {
   createVendor,
@@ -429,4 +707,6 @@ module.exports = {
   updateMenu,
   deletemenu,
   updateStatus,
+  getVendorOrders,
+  getVendorMenu,
 };

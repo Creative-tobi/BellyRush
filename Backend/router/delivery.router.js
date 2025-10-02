@@ -6,6 +6,8 @@ const {
   deliveryLogin,
   deliveryProfile,
   updateStatus,
+  updateLocation,
+  findNearbyDeliveries,
 } = require("../controller/delivery.controller");
 const authmiddleware = require("../middleware/auth.middleware");
 const upload = require("../config/multer");
@@ -19,5 +21,8 @@ router.put("/delivery/status", updateStatus);
 
 router.post("/deliveryotp", verifyOTP);
 router.put("/resenddeliveryotp", resendOTP);
+
+router.put("/updatelocation", updateLocation);
+router.get("/findnearbydeliveries", findNearbyDeliveries);
 
 module.exports = router;
