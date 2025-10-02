@@ -4,6 +4,14 @@ import cicken from "/src/media/cicken.jpg";
 import { useNavigate } from "react-router-dom";
 import videopreview from "/src/media/food.mp4";
 import { CgProfile } from "react-icons/cg";
+import burger from "/src/media/burger.jpg";
+import pizza from "/src/media/pizza.jpg";
+import shawama from "/src/media/shawama.jpg";
+import shoping from "/src/media/shoping.jpg";
+import fast from "/src/media/fast.jpg";
+import delivery from "/src/media/delivey.jpg";
+import vendor from "/src/media/vendor.jpg";
+import user from "/src/media/buyer.jpg";
 
 const Homepage = () => {
   const [data, setData] = useState({ email: "", password: "" });
@@ -103,7 +111,7 @@ const Homepage = () => {
           <div className="flex flex-wrap justify-center md:grid-cols-3 lg:grid-cols-4 gap-6 px-6 py-6">
             <div className="place-items-center">
               <img
-                src="/src/media/chicken.png"
+                src={cicken}
                 alt="chicken rice"
                 className="rounded-full bg-gray-400 h-50 w-50"
               />
@@ -114,7 +122,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/burger.jpg"
+                src={burger}
                 alt="chicken rice"
                 className="rounded-full h-50 w-50"
               />
@@ -125,7 +133,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/pizza.jpg"
+                src={pizza}
                 alt="chicken rice"
                 className="rounded-full h-50 w-50"
               />
@@ -136,7 +144,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/chicken.png"
+                src={cicken}
                 alt="chicken rice"
                 className="rounded-full bg-gray-400 h-50 w-50"
               />
@@ -147,7 +155,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/shawama.jpg"
+                src={shawama}
                 alt="chicken rice"
                 className="rounded-full h-50 w-50"
               />
@@ -158,7 +166,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/pizza.jpg"
+                src={pizza}
                 alt="chicken rice"
                 className="rounded-full h-50 w-50"
               />
@@ -169,7 +177,7 @@ const Homepage = () => {
 
             <div className="place-items-center">
               <img
-                src="/src/media/burger.jpg"
+                src={burger}
                 alt="chicken rice"
                 className="rounded-full h-50 w-50"
               />
@@ -198,7 +206,7 @@ const Homepage = () => {
             <div className="md:w-150">
               <div className="place-items-center">
                 <img
-                  src="/src/media/delivey.jpg"
+                  src={delivery}
                   alt="delivery food"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
@@ -219,7 +227,7 @@ const Homepage = () => {
             <div className="md:w-150">
               <div className="place-items-center">
                 <img
-                  src="/src/media/fast.jpg"
+                  src={fast}
                   alt="delivery food"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
@@ -237,7 +245,7 @@ const Homepage = () => {
             <div className="md:w-150">
               <div className="place-items-center">
                 <img
-                  src="/src/media/shoping.jpg"
+                  src={shoping}
                   alt="delivery food"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
@@ -329,7 +337,7 @@ const Homepage = () => {
                 "BellyRush has transformed the way I order food. The variety of
                 restaurants and the speed of delivery are unmatched!"
               </p>
-            </div>  
+            </div>
             <div className="place-items-center md:w-150">
               <div>
                 <img
@@ -341,8 +349,9 @@ const Homepage = () => {
               </div>
               <h1 className="text-2xl font-bold">John Smith</h1>
               <p className="text-gray-700 text-lg py-2 pb-4">
-                "I love how easy it is to use BellyRush. The app is user-friendly,
-                and I can track my order in real-time. Highly recommend!"
+                "I love how easy it is to use BellyRush. The app is
+                user-friendly, and I can track my order in real-time. Highly
+                recommend!"
               </p>
             </div>
             <div className="place-items-center md:w-150">
@@ -370,7 +379,7 @@ const Homepage = () => {
             <div className="place-items-center">
               <div>
                 <img
-                  src="/src/media/fast.jpg"
+                  src={fast}
                   alt="delivery man"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
@@ -391,7 +400,7 @@ const Homepage = () => {
             <div className="place-items-center">
               <div>
                 <img
-                  src="/src/media/vendor.jpg"
+                  src={vendor}
                   alt="a chef preparing food"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
@@ -412,7 +421,7 @@ const Homepage = () => {
             <div className="place-items-center">
               <div>
                 <img
-                  src="/src/media/buyer.jpg"
+                  src={user}
                   alt="a customer about to order food"
                   className="py-6 px-6 bg-green-200 w-50 h-50"
                   style={{ borderRadius: "50% 50% 20% 50%" }}
