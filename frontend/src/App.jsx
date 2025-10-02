@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import videopreview from '/src/media/video_preview.mp4'
-import Homepage from './pages/homepage';
+import Homepage from './Homepage';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import VendorRegister from './pages/vendor/VendorRegister';
 import VendorLogin from './pages/vendor/VendorLogin';
