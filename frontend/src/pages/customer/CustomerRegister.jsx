@@ -8,10 +8,11 @@ const CustomerRegister = () => {
     name: "",
     email: "",
     password: "",
+    phone: "", // Added required phone field
     profileImage: null,
   });
 
-  const [preview, setPreview] = useState(null); 
+  const [preview, setPreview] = useState(null);
 
   const navigate = useNavigate();
 
@@ -34,31 +35,68 @@ const CustomerRegister = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
 
+    // Validate required fields (matching your backend requirements)
+    const requiredFields = ["name", "email", "password", "phone"];
+    const missingFields = requiredFields.filter((field) => !data[field]);
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in all required fields: ${missingFields.join(", ")}`);
+      return;
+    }
+
     try {
       // use FormData because we are sending file
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("email", data.email);
       formData.append("password", data.password);
-      formData.append("profileImage", data.profileImage);
+      formData.append("phone", data.phone); // Added phone field
+      if (data.profileImage) {
+        // Only append if file exists
+        formData.append("profileImage", data.profileImage);
+      }
 
       const res = await Api.post("/createbuyer", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       console.log("Buyer registration", res.data);
-      if (res.data.token) localStorage.setItem("token", res.data.token);
-      if (res.data.Buyer?._id)
-        localStorage.setItem("buyerId", res.data.buyer._id);
-      if (res.data.Buyer?.email)
-        localStorage.setItem("buyerEmail", res.databuyerr.email);
-      if (res.data.Buyer?.OTP)
-        localStorage.setItem("buyerOTP", res.data.buyer.OTP);
 
-      alert("Registration successful! Please verify your email.");
-      navigate("/customer/login");
+      // Fixed: accessing 'buyer' property (not 'Buyer') and corrected typos
+      if (res.data.token) localStorage.setItem("token", res.data.token);
+      if (res.data.buyer?._id)
+        // lowercase 'buyer'
+        localStorage.setItem("buyerId", res.data.buyer._id);
+      if (res.data.buyer?.email)
+        // lowercase 'buyer'
+        localStorage.setItem("buyerEmail", res.data.buyer.email);
+      // Note: OTP is handled via email, no need to store in localStorage
+
+      alert(
+        "Registration successful! Please check your email for OTP verification."
+      );
+      navigate("/customer/otp");
     } catch (error) {
-      error.response && alert(error.response.data.message);
+      // Improved error handling - check both 'message' and 'error' properties
+      let errorMessage = "An error occurred during registration";
+
+      if (error.response) {
+        if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
+        }
+      } else if (error.request) {
+        errorMessage =
+          "No response from server. Please check your internet connection.";
+      } else {
+        errorMessage = error.message || "An unknown error occurred";
+      }
+
+      alert(errorMessage);
+      console.error("Registration error:", error);
     }
   };
 
@@ -66,17 +104,17 @@ const CustomerRegister = () => {
     <>
       <Navbar />
       <section className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div>
+        <div className="w-full max-w-md">
           <form
             className="bg-white p-6 rounded-lg shadow-md"
             onSubmit={handleRegister}
             encType="multipart/form-data">
-            <h2 className="text-2xl font-bold mb-4 text-center">
-              Buyer Register
+            <h2 className="text-2xl font-bold mb-6 text-center">
+              Customer Register
             </h2>
 
             {/* Upload section */}
-            <div className="mb-4 text-center">
+            <div className="mb-6 text-center">
               {/* hidden input */}
               <input
                 type="file"
@@ -113,7 +151,7 @@ const CustomerRegister = () => {
                       />
                     </svg>
                     <span className="mt-2 text-sm text-gray-500 opacity-0 group-hover:opacity-100 transition">
-                      Upload Image
+                      Upload Photo
                     </span>
                   </>
                 )}
@@ -122,39 +160,65 @@ const CustomerRegister = () => {
 
             {/* Name */}
             <div className="mb-4">
-              <label className="block mb-1 font-medium">Name</label>
+              <label className="block mb-2 font-medium text-gray-700">
+                Full Name *
+              </label>
               <input
                 type="text"
                 name="name"
                 value={data.name}
                 onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="Enter your full name"
                 required
               />
             </div>
 
             {/* Email */}
             <div className="mb-4">
-              <label className="block mb-1 font-medium">Email</label>
+              <label className="block mb-2 font-medium text-gray-700">
+                Email *
+              </label>
               <input
                 type="email"
                 name="email"
                 value={data.email}
                 onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="Enter your email address"
+                required
+              />
+            </div>
+
+            {/* Phone */}
+            <div className="mb-4">
+              <label className="block mb-2 font-medium text-gray-700">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={data.phone}
+                onChange={handleChange}
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="Enter your phone number"
                 required
               />
             </div>
 
             {/* Password */}
-            <div className="mb-4">
-              <label className="block mb-1 font-medium">Password</label>
+            <div className="mb-6">
+              <label className="block mb-2 font-medium text-gray-700">
+                Password *
+              </label>
               <input
                 type="password"
                 name="password"
                 value={data.password}
                 onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="Enter a strong password (min 6 characters)"
+                minLength="6"
                 required
               />
             </div>
@@ -162,15 +226,15 @@ const CustomerRegister = () => {
             {/* Button */}
             <button
               type="submit"
-              className="w-full bg-green-400 text-white py-2 rounded-lg hover:bg-green-500 transition duration-300">
+              className="w-full bg-green-400 text-white py-3 rounded-lg hover:bg-green-500 transition duration-300 font-medium">
               Register
             </button>
 
-            <p className="mt-4 text-center">
+            <p className="mt-4 text-center text-gray-600">
               Already have an account?{" "}
               <Link
                 to="/customer/login"
-                className="text-green-400 hover:underline">
+                className="text-green-400 hover:underline font-medium">
                 Login
               </Link>
             </p>

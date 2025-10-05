@@ -5,65 +5,159 @@ import Navbar from "../../component/Navbar";
 
 const VendorOTP = () => {
   const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleOTPSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate OTP input
+    if (!otp.trim()) {
+      alert("Please enter the OTP");
+      return;
+    }
+
+    if (!/^\d{4}$/.test(otp)) {
+      alert("OTP must be a 4-digit number");
+      return;
+    }
+
+    const vendorEmail = localStorage.getItem("vendorEmail");
+
+    if (!vendorEmail) {
+      alert("Email not found. Please login again.");
+      navigate("/vendor/login");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const vendorId = localStorage.getItem("vendorId");
-      const res = await Api.post("/vendorotp", { vendorId, otp });
+      const res = await Api.post("/vendorotp", {
+        email: vendorEmail,
+        OTP: otp,
+      });
       console.log("OTP verification", res.data);
+
+      // Clear OTP-related localStorage items after successful verification
+      localStorage.removeItem("vendorOTP");
+
       alert("OTP verified successfully!");
       navigate("/vendor/dashboard");
     } catch (error) {
-      error.response && alert(error.response.data.message);
+      // Improved error handling
+      let errorMessage = "An error occurred during OTP verification";
+
+      if (error.response) {
+        if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
+        }
+      } else if (error.request) {
+        errorMessage =
+          "No response from server. Please check your internet connection.";
+      } else {
+        errorMessage = error.message || "An unknown error occurred";
+      }
+
+      alert(errorMessage);
+      console.error("OTP verification error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
+  const handleResendOTP = async (e) => {
+    e.preventDefault(); // Prevent default link behavior
+
+    const vendorEmail = localStorage.getItem("vendorEmail");
+
+    if (!vendorEmail) {
+      alert("Email not found. Please login again.");
+      navigate("/vendor/login");
+      return;
+    }
+
+    setResendLoading(true);
     try {
-      const vendorEmail = localStorage.getItem("vendorEmail");
       const res = await Api.post("/resendvendorotp", { email: vendorEmail });
       console.log("Resend OTP", res.data);
       alert("OTP resent successfully! Please check your email.");
     } catch (error) {
-      error.response && alert(error.response.data.message);
+      // Improved error handling for resend
+      let errorMessage = "Failed to resend OTP";
+
+      if (error.response) {
+        if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
+        }
+      } else if (error.request) {
+        errorMessage =
+          "No response from server. Please check your internet connection.";
+      } else {
+        errorMessage = error.message || "An unknown error occurred";
+      }
+
+      alert(errorMessage);
+      console.error("Resend OTP error:", error);
+    } finally {
+      setResendLoading(false);
     }
-  }
+  };
 
   return (
     <div>
       <Navbar />
       <section className="min-h-screen flex items-center justify-center bg-gray-100">
-        <form
-          className="bg-white p-6 rounded-lg shadow-md"
-          onSubmit={handleOTPSubmit}>
-          <h1 className="text-2xl font-bold mb-4 text-center">
-            Enter the OTP sent to your mail
-          </h1>
+        <div className="w-full max-w-md">
+          <form
+            className="bg-white p-6 rounded-lg shadow-md"
+            onSubmit={handleOTPSubmit}>
+            <h1 className="text-2xl font-bold mb-6 text-center">
+              Enter the OTP sent to your email
+            </h1>
 
-          <label>
-            Enter OTP:
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-              required
-            />
-          </label>
-          <button
-            type="submit"
-            className="w-full bg-green-400 text-white py-2 rounded-lg hover:bg-green-500 transition duration-300">
-            Verify OTP
-          </button>
-          <p className="mt-4 text-center">
-            Didn't receive the OTP?{" "}
-            <Link to="" className="text-green-600 hover:underline" onClick={handleResendOTP}>
-              Resend OTP
-            </Link>
-          </p>
-        </form>
+            <div className="mb-6">
+              <label className="block mb-2 font-medium text-gray-700">
+                Enter OTP:
+              </label>
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                placeholder="Enter 4-digit OTP"
+                maxLength="4"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-400 text-white py-3 rounded-lg hover:bg-green-500 transition duration-300 font-medium shadow-md disabled:opacity-70 disabled:cursor-not-allowed">
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+
+            <p className="mt-6 text-center text-gray-600">
+              Didn't receive the OTP?{" "}
+              <button
+                type="button"
+                onClick={handleResendOTP}
+                disabled={resendLoading}
+                className="text-green-600 hover:underline font-medium disabled:opacity-70 disabled:cursor-not-allowed">
+                {resendLoading ? "Resending..." : "Resend OTP"}
+              </button>
+            </p>
+          </form>
+        </div>
       </section>
     </div>
   );

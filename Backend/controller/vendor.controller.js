@@ -81,7 +81,7 @@ async function createVendor(req, res) {
       deliveryarea,
       earnings = 0,
       rating = 0,
-      reviews = [],
+      reviews = 0,
       commission = 0,
       payout = 0,
     } = req.body;

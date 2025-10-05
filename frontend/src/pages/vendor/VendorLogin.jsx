@@ -1,86 +1,131 @@
-import {useNavigate, Link} from "react-router-dom";
-import React, {useState} from 'react'
-import Api from "../../component/Api"
+import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from "react";
+import Api from "../../component/Api";
 import Navbar from "../../component/Navbar";
 
 const VendorLogin = () => {
-    const [data, setData] = useState({email: "", password: ""})
-    const navigate = useNavigate();
+  const [data, setData] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
 
-    const handleChange = (e) => {
-        setData({
-            ...data,
-            [e.target.name]: e.target.value,
-        });
-    };
+  const handleChange = (e) => {
+    setData({
+      ...data,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await Api.post("/vendorlogin", data);
-            console.log("Vendor login", res.data);
-            if (res.data.token) localStorage.setItem("token", res.data.token);
-            if (res.data.Vendor?._id) localStorage.setItem("vendorId", res.data.vendor._id);
-            if (res.data.Vendor?.email) localStorage.setItem("vendorEmail", res.data.vendor.email);
-            if (res.data.Vendor?.OTP) localStorage.setItem("vendorOTP", res.data.vendor.OTP);
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-            alert("Login successful!");
-            navigate("/vendor/otp");
-        } catch (error) {
-            error.response &&
-            alert(error.response.data.message);
-        }
+    // Basic validation
+    if (!data.email || !data.password) {
+      alert("Please enter both email and password");
+      return;
     }
+
+    try {
+      const res = await Api.post("/vendorlogin", data);
+      console.log("Vendor login", res.data);
+
+      // Fixed: accessing 'vendor' property (not 'Vendor')
+      if (res.data.token) localStorage.setItem("token", res.data.token);
+      if (res.data.vendor?._id)
+        localStorage.setItem("vendorId", res.data.vendor._id);
+      if (res.data.vendor?.email)
+        localStorage.setItem("vendorEmail", res.data.vendor.email);
+
+      // Note: OTP is only needed for registration, not login
+      // Remove OTP from localStorage on login since it's not relevant
+      localStorage.removeItem("vendorOTP");
+
+      alert("Login successful!");
+      navigate("/vendor/dashboard"); // Redirect to OTP verification if needed
+    } catch (error) {
+      // Improved error handling
+      let errorMessage = "An error occurred during login";
+
+      if (error.response) {
+        if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
+        }
+      } else if (error.request) {
+        errorMessage =
+          "No response from server. Please check your internet connection.";
+      } else {
+        errorMessage = error.message || "An unknown error occurred";
+      }
+
+      alert(errorMessage);
+      console.error("Login error:", error);
+    }
+  };
 
   return (
     <>
-    <Navbar />
-        <section className="min-h-screen flex items-center justify-center bg-gray-100">
-            <div>
-                <form className="bg-white p-6 rounded-lg shadow-md" onSubmit={handleLogin}> 
-                    <h2 className="text-2xl font-bold mb-4 text-center">Vendor Login</h2>
-                    <div className="mb-4">
-                        <label className="block mb-1 font-medium">Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={data.email}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-                            required
-                        />
-                    </div>
-                    <div className="mb-4">
-                        <label className="block mb-1 font-medium">Password</label>
-                        <input
-                            type="password"
-                            name="password" 
-                            value={data.password}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full bg-green-400 text-white py-2 px-4 rounded-lg hover:bg-green-500 transition-colors"
-                    >   
-                        Login
-                    </button>
-                    <p className="mt-4 text-center">
-                        Don't have an account?{" "}
-                        <Link to="/vendor/register" className="text-green-600 hover:underline">
-                            Register here
-                        </Link>
-                    </p>
-                </form>
+      <Navbar />
+      <section className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="w-full max-w-md">
+          <form
+            className="bg-white p-6 rounded-lg shadow-md"
+            onSubmit={handleLogin}>
+            <h2 className="text-2xl font-bold mb-6 text-center">
+              Vendor Login
+            </h2>
+
+            <div className="mb-4">
+              <label className="block mb-2 font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={data.email}
+                onChange={handleChange}
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                placeholder="Enter your email"
+                required
+              />
             </div>
-        </section>
 
+            <div className="mb-6">
+              <label className="block mb-2 font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={data.password}
+                onChange={handleChange}
+                className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                placeholder="Enter your password"
+                required
+                minLength="6"
+              />
+            </div>
 
+            <button
+              type="submit"
+              className="w-full bg-green-400 text-white py-3 px-4 rounded-lg hover:bg-green-500 transition-colors font-medium shadow-md hover:shadow-lg">
+              Login
+            </button>
 
+            <p className="mt-6 text-center text-gray-600">
+              Don't have an account?{" "}
+              <Link
+                to="/vendor/register"
+                className="text-green-600 hover:underline font-medium">
+                Register here
+              </Link>
+            </p>
+          </form>
+        </div>
+      </section>
     </>
-  )
-}
+  );
+};
 
-export default VendorLogin
+export default VendorLogin;

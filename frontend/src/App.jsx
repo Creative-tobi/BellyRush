@@ -35,6 +35,7 @@ function App() {
           <Route path="/vendor/login" element={<VendorLogin />} />
           <Route path="/vendor/otp" element={<VendorOTP />} />
           <Route path="/vendor/dashboard" element={<VendorDashboard />} />
+          <Route path="/vendor/menu/create" element={<VendorDashboard/>}/>
 
           {/* Delivery man account create */}
           <Route path="/delivery/register" element={<DeliveryRegistry />} />
