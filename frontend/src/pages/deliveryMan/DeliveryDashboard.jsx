@@ -19,7 +19,7 @@ const DeliveryDashboard = () => {
     try {
       setLoading(true);
 
-      const profileRes = await Api.get("/delivery/profile");
+      const profileRes = await Api.get("/deliveryprofile");
       setDelivery(profileRes.data.delivery);
       setStatus(profileRes.data.delivery.status || "offline");
 
@@ -37,7 +37,7 @@ const DeliveryDashboard = () => {
 
   const updateStatus = async (newStatus) => {
     try {
-      await Api.put("/delivery/updatestatus", {
+      await Api.put("/delivery/status", {
         status: newStatus,
         email: delivery.email,
       });
@@ -58,9 +58,7 @@ const DeliveryDashboard = () => {
     }
 
     try {
-      await Api.put("/delivery/updatelocation", {
-        currentLocation: location,
-      });
+      await Api.put(`/updatelocation`);
 
       alert("Location updated successfully!");
       setLocation("");

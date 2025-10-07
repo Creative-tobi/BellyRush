@@ -34,7 +34,7 @@ const CustomerOTP = () => {
     setLoading(true);
     try {
       // Fixed: Send email and OTP (not buyerId) to match your backend
-      const res = await Api.post("/buyerotp", { email: buyerEmail, OTP: otp });
+      const res = await Api.post("/otpverify", { email: buyerEmail, OTP: otp });
       console.log("OTP verification", res.data);
 
       // Clear OTP-related localStorage items after successful verification

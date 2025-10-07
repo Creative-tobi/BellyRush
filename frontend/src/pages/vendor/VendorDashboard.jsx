@@ -31,13 +31,13 @@ const VendorDashboard = () => {
     try {
       setLoading(true);
 
-      const vendorRes = await Api.get("/vendor/profile");
+      const vendorRes = await Api.get("/vendorprofile");
       setVendor(vendorRes.data.vendor);
 
-      const ordersRes = await Api.get("/vendor/orders");
+      const ordersRes = await Api.get("/vendororders");
       setOrders(ordersRes.data.orders);
 
-      const menuRes = await Api.get("/vendor/menu");
+      const menuRes = await Api.get("/vendormenu");
       setMenuItems(menuRes.data.menu);
 
       setLoading(false);
@@ -50,8 +50,8 @@ const VendorDashboard = () => {
 
   const handleOrderStatusUpdate = async (orderId, newStatus) => {
     try {
-      await Api.put(`/vendor/updatestatus/${orderId}`, { status: newStatus });
-      const ordersRes = await Api.get("/vendor/orders");
+      await Api.put(`/updatestatus/${orderId}`, { status: newStatus });
+      const ordersRes = await Api.get("/vendororders");
       setOrders(ordersRes.data.orders);
       alert("Order status updated successfully!");
     } catch (error) {
@@ -165,7 +165,7 @@ const VendorDashboard = () => {
         formDataToSend.append("profileImage", formData.profileImage);
       }
 
-      await Api.post("/vendor/createmenu", formDataToSend, {
+      await Api.post("/createmenu", formDataToSend, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

@@ -57,7 +57,7 @@ const Homepage = () => {
   return (
     <>
       <motion.section
-        className="skeleton min-h-screen bg-neutral-50"
+        className="skeleton min-h-screen bg-neutral-50 "
         initial={{ opacity: 1 }}
         animate={{ opacity: 1 }}>
         {/* Single Unified Header */}
@@ -102,13 +102,13 @@ const Homepage = () => {
 
         {/* Hero Section */}
         <motion.section
-          className="pt-12 px-4 sm:px-6 lg:px-8"
+          className=""
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          viewport={{ once: false, margin: "-100px" }} // Animate on every scroll
+          viewport={{ once: false, margin: "" }} 
         >
-          <div className="md:flex md:justify-center bg-white pt-6 px-4 place-items-center">
+          <div className="md:flex md:justify-center bg-white py-12 px-4 place-items-center">
             <div className="md:w-150">
               <motion.i
                 className="bg-black/70 text-white border-2 border-green-200 rounded-xl text-center px-4 py-2"

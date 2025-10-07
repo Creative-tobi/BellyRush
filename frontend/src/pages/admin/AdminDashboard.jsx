@@ -31,11 +31,11 @@ const AdminDashboard = () => {
       // Fetch all data in parallel
       const [vendorsRes, buyersRes, deliveriesRes, ordersRes, menuRes] =
         await Promise.all([
-          Api.get("/admin/vendor"),
-          Api.get("/admin/buyer"),
-          Api.get("/admin/delivery"),
-          Api.get("/admin/order"),
-          Api.get("/admin/menu"),
+          Api.get("/allvendor"),
+          Api.get("/allbuyer"),
+          Api.get("/alldelivery"),
+          Api.get("/allorder"),
+          Api.get("/allmenu"),
         ]);
 
       setVendors(vendorsRes.data.allVendor || []);
@@ -69,19 +69,19 @@ const AdminDashboard = () => {
       let endpoint = "";
       switch (type) {
         case "vendor":
-          endpoint = `/admin/deletevendor/${id}`;
+          endpoint = `/removeVendor/${id}`;
           break;
         case "buyer":
-          endpoint = `/admin/deletebuyer/${id}`;
+          endpoint = `/removeBuyer/${id}`;
           break;
         case "delivery":
-          endpoint = `/admin/deletedelivery/${id}`;
+          endpoint = `/removeDelivery/${id}`;
           break;
         case "menu":
-          endpoint = `/admin/deletemenu/${id}`;
+          endpoint = `/removeMenu/${id}`;
           break;
         case "order":
-          endpoint = `/admin/deleteorder/${id}`;
+          endpoint = `/removeOrder/${id}`;
           break;
         default:
           return;

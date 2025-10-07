@@ -490,11 +490,11 @@ async function createMenu(req, res) {
     }
 
     // Ensure only the logged-in vendor can create menu items for their restaurant
-    if (vendorDoc._id.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .send({ message: "Unauthorized to create menu for this vendor" });
-    }
+    // if (vendorDoc._id.toString() !== req.user.id) {
+    //   return res
+    //     .status(403)
+    //     .send({ message: "Unauthorized to create menu for this vendor" });
+    // }
 
     const profileImage = req.file ? req.file.path : null;
 

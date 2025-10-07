@@ -394,7 +394,7 @@ async function getDelivery(req, res) {
 //get all menu
 async function getMenu(req, res) {
   try {
-    const allMenu = await Menu.find();
+    const allMenu = await Menu.find().select("-password");
     res
       .status(200)
       .send({ message: "All menu items fetched successfully", allMenu });
@@ -407,7 +407,7 @@ async function getMenu(req, res) {
 //get all order
 async function getOrder(req, res) {
   try {
-    const allOrder = await Order.find();
+    const allOrder = await Order.find().select("-password");
     res
       .status(200)
       .send({ message: "All orders fetched successfully", allOrder });

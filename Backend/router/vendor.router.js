@@ -29,7 +29,7 @@ router.put("/updatevendor/:id", updateVendor);
 router.post("/createmenu", upload.single("profileImage"), createMenu);
 router.put("/updatemenu/:id", updateMenu);
 router.delete("/deletemenu/:id", deletemenu);
-router.put("/updatestatus",  updateStatus);   
+router.put("/updatestatus/:id",  updateStatus);   
 router.get("/vendororders", authmiddleware, getVendorOrders);
 router.get("/vendormenu", authmiddleware, getVendorMenu);
 

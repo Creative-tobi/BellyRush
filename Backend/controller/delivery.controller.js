@@ -76,8 +76,8 @@ async function createDelivery(req, res) {
       deliveryArea,
       earnings = 0,
       rating = 0,
-      reviews = [],
-      orders = [],
+      reviews = 0,
+      orders = 0,
       payout = 0,
     } = req.body;
 

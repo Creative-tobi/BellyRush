@@ -10,6 +10,7 @@ const {
   getOrders,
   updateOrder,
   checkoutOrder,
+  getMenu,
   createPaymentIntent,
 } = require("../controller/buyer.controller");
 
@@ -25,8 +26,9 @@ router.get("/buyerprofile", authmiddleware, buyerProfile);
 router.post("/otpverify", verifyOTP);
 router.put("/updateotp", resendOTP);
 router.get("/restaurants", getVendors);
-router.post("/createorder", createOrder);
+router.post("/createorder/:id", createOrder);
 router.get("/getorders", getOrders);
+router.get("/getallmenu", getMenu);
 router.put("/updateorder", updateOrder);
 router.post("/ordercheckout", checkoutOrder);
 router.post("/create-payment-intent", createPaymentIntent);

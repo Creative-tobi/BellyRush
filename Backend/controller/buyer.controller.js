@@ -394,6 +394,26 @@ async function getVendors(req, res) {
   }
 }
 
+//GET MENU LIST
+async function getMenu(req, res) {
+  try {
+    const allMenu = await Menu.find().select(
+      "-password"
+    );
+    if (!Menu || allMenu.length === 0) {
+      return res.status(404).send({ message: "No menu found" });
+    }
+    res.status(200).send({
+      message: "Available menu fetched successfully",
+      vendors: allMenu,
+    });
+  } catch (error) {
+    console.error("Get menu error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+
 // CREATE ORDER
 async function createOrder(req, res) {
   try {
@@ -489,7 +509,8 @@ async function createOrder(req, res) {
 // GET ORDERS
 async function getOrders(req, res) {
   try {
-    const buyerId = req.user.id;
+    // const {id} = req.user.id;
+    const buyerId = req.body;
 
     if (!buyerId) {
       return res.status(400).send({ message: "Buyer ID missing in token" });
@@ -668,4 +689,5 @@ module.exports = {
   updateOrder,
   checkoutOrder,
   createPaymentIntent,
+  getMenu,
 };

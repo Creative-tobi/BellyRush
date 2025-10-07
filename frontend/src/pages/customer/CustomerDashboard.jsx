@@ -26,13 +26,16 @@ const CustomerDashboard = () => {
     try {
       setLoading(true);
 
-      const profileRes = await Api.get("/buyer/profile");
+      const profileRes = await Api.get("/buyerprofile");
       setCustomer(profileRes.data.buyer);
 
-      const ordersRes = await Api.get("/buyer/orders");
+      const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders);
 
-      const vendorsRes = await Api.get("/buyer/vendors");
+      const menusRes = await Api.get("/getallmenu");
+      setOrders(menusRes.data.orders);
+
+      const vendorsRes = await Api.get("/restaurants");
       setVendors(vendorsRes.data.vendors);
 
       setLoading(false);
@@ -45,7 +48,7 @@ const CustomerDashboard = () => {
 
   const handleAddToCart = async (menuId, vendorId, quantity = 1) => {
     try {
-      const res = await Api.post("/buyer/createorder", {
+      const res = await Api.post("/createorder", {
         menuId,
         buyerId: customer?._id,
         deliveryaddress: customer?.address || "Please update your address",
@@ -53,7 +56,7 @@ const CustomerDashboard = () => {
         quantity,
       });
 
-      const ordersRes = await Api.get("/buyer/orders");
+      const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders);
 
       alert("Item added to cart successfully!");
@@ -66,12 +69,12 @@ const CustomerDashboard = () => {
   const handleCheckout = async (orderId) => {
     try {
       // Simple backend-only checkout
-      await Api.post("/buyer/checkoutorder", {
+      await Api.post("/ordercheckout", {
         orderId: orderId
       });
 
       // Refresh orders
-      const ordersRes = await Api.get("/buyer/orders");
+      const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders);
       
       alert("Order placed successfully!");
