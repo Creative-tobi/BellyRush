@@ -62,15 +62,25 @@ const CustomerRegister = () => {
 
       console.log("Buyer registration", res.data);
 
-      // Fixed: accessing 'buyer' property (not 'Buyer') and corrected typos
+      // ✅ Save authentication token
       if (res.data.token) localStorage.setItem("token", res.data.token);
-      if (res.data.buyer?._id)
-        // lowercase 'buyer'
-        localStorage.setItem("buyerId", res.data.buyer._id);
-      if (res.data.buyer?.email)
-        // lowercase 'buyer'
+
+      // ✅ Save complete buyer information to localStorage for dashboard
+      if (res.data.buyer) {
+        const buyerInfo = {
+          _id: res.data.buyer.id, // This is the buyerId (ObjectId string)
+          name: res.data.buyer.name,
+          email: res.data.buyer.email,
+          phone: res.data.buyer.phone,
+          // address will be null initially (user can update in profile later)
+          address: null,
+          profileImage: preview, // Save the preview URL for immediate use
+        };
+
+        localStorage.setItem("customer", JSON.stringify(buyerInfo));
+        localStorage.setItem("buyerId", res.data.buyer.id);
         localStorage.setItem("buyerEmail", res.data.buyer.email);
-      // Note: OTP is handled via email, no need to store in localStorage
+      }
 
       alert(
         "Registration successful! Please check your email for OTP verification."
@@ -128,7 +138,7 @@ const CustomerRegister = () => {
               {/* clickable upload area */}
               <label
                 htmlFor="profileImage"
-                className="w-32 h-32 mx-auto flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded-full cursor-pointer hover:bg-green-50 transition group overflow-hidden">
+                className="w-32 h-32 mx-auto flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded-full cursor-pointer hover:bg-green-50 hover:border-green-400 transition group overflow-hidden">
                 {preview ? (
                   <img
                     src={preview}

@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendmail = require("../service/nodemailer");
+const sendEmail = require("../service/nodemailer");
 const Buyer = require("../model/buyer.model");
 const Delivery = require("../model/delivery.model");
 const { Vendor, Menu, Order } = require("../model/vendor.model");
@@ -21,7 +21,7 @@ const validatePhone = (phone) => {
 // Nodemailer email templates
 const sendOTPEmail = async (email, otp, restaurantName) => {
   try {
-    await sendmail({
+    await sendEmail({
       to: email,
       subject: "Your BellyRush Vendor OTP Verification",
       html: `
@@ -46,7 +46,7 @@ const sendOTPEmail = async (email, otp, restaurantName) => {
 
 const sendVerificationSuccessEmail = async (email, restaurantName) => {
   try {
-    await sendmail({
+    await sendEmail({
       to: email,
       subject: "BellyRush Vendor Account Verified",
       html: `

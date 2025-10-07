@@ -397,32 +397,41 @@ async function getVendors(req, res) {
 //GET MENU LIST
 async function getMenu(req, res) {
   try {
-    const allMenu = await Menu.find().select(
-      "-password"
-    );
-    if (!Menu || allMenu.length === 0) {
-      return res.status(404).send({ message: "No menu found" });
+    const { vendorId } = req.params; 
+
+    if (!vendorId) {
+      return res.status(400).json({ message: "Vendor ID is required" });
     }
-    res.status(200).send({
-      message: "Available menu fetched successfully",
-      vendors: allMenu,
+
+    
+    const allMenu = await Menu.find({ vendor: vendorId }).select("-password");
+
+    if (!allMenu || allMenu.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No menu items found for this vendor" });
+    }
+
+    res.status(200).json({
+      message: "Menu fetched successfully",
+      menu: allMenu, 
     });
   } catch (error) {
     console.error("Get menu error:", error);
-    res.status(500).send({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 }
-
 
 // CREATE ORDER
 async function createOrder(req, res) {
   try {
-    const { menuId, deliveryaddress, contact, buyerId, quantity } = req.body;
+    const buyerId = req.user.id;
+    const { menuId, quantity, deliveryaddress, contact } = req.body;
 
     // ✅ Enhanced Validation
-    if (!menuId || !buyerId || !deliveryaddress || !contact) {
+    if (!menuId || !deliveryaddress || !contact) {
       return res.status(400).send({
-        message: "menuId, buyerId, deliveryaddress, contact are required",
+        message: "menuId, deliveryaddress, contact are required",
       });
     }
 
@@ -468,7 +477,7 @@ async function createOrder(req, res) {
         items: [],
         deliveryaddress,
         contact,
-        totalamount: 0,
+        // totalamount: 0,
         status: "pending",
         paymentStatus: "unpaid",
       });
@@ -509,12 +518,7 @@ async function createOrder(req, res) {
 // GET ORDERS
 async function getOrders(req, res) {
   try {
-    // const {id} = req.user.id;
-    const buyerId = req.body;
-
-    if (!buyerId) {
-      return res.status(400).send({ message: "Buyer ID missing in token" });
-    }
+    const buyerId = req.user.id;
 
     const orders = await Order.find({ buyer: buyerId })
       .populate("buyer", "name email")
@@ -532,6 +536,42 @@ async function getOrders(req, res) {
     });
   } catch (error) {
     console.error("Get orders error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+// UPDATE ITEM QUANTITY
+async function updateItemQuantity(req, res) {
+  try {
+    const buyerId = req.user.id;
+    const { orderId, menuId, quantity } = req.body;
+
+    if (!orderId || !menuId || quantity == null) {
+      return res.status(400).send({ message: "orderId, menuId, and quantity are required" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, buyer: buyerId });
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    const item = order.items.find(item => item.menuId.toString() === menuId);
+    if (!item) {
+      return res.status(404).send({ message: "Item not found in order" });
+    }
+
+    item.quantity = quantity;
+    if (quantity <= 0) {
+      order.items = order.items.filter(item => item.menuId.toString() !== menuId);
+    }
+
+    order.totalamount = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+    await order.save();
+
+    res.status(200).send({ message: "Quantity updated", order });
+  } catch (error) {
+    console.error("Update item quantity error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -645,7 +685,7 @@ async function checkoutOrder(req, res) {
 // CREATE PAYMENT INTENT (New endpoint for frontend)
 async function createPaymentIntent(req, res) {
   try {
-    const { orderId } = req.body;
+    const { id: orderId } = req.params;
 
     if (!orderId) {
       return res.status(400).send({ message: "orderId is required" });
@@ -663,6 +703,7 @@ async function createPaymentIntent(req, res) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: order.totalamount,
       currency: "usd",
+      payment_method_types: ['card'],
       metadata: { orderId: order._id.toString() },
       description: `Order #${order._id} payment`,
     });
@@ -686,6 +727,7 @@ module.exports = {
   getVendors,
   createOrder,
   getOrders,
+  updateItemQuantity,
   updateOrder,
   checkoutOrder,
   createPaymentIntent,

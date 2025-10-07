@@ -72,8 +72,8 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    deliveryaddress: { type: String, required: true },
-    contact: { type: String, required: true },
+    deliveryaddress: { type: String, required: false },
+    contact: { type: String, required: false },
 
     totalamount: { type: Number, default: 0 },
     status: {

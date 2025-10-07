@@ -27,12 +27,25 @@ const CustomerLogin = () => {
       const res = await Api.post("/buyerlogin", data);
       console.log("Buyer login", res.data);
 
-      // Fixed: accessing 'buyer' property (not 'Buyer') - lowercase matches your backend
+      // ✅ Save authentication token
       if (res.data.token) localStorage.setItem("token", res.data.token);
-      if (res.data.buyer?._id)
-        localStorage.setItem("buyerId", res.data.buyer._id);
-      if (res.data.buyer?.email)
+
+      // ✅ Save complete buyer information to localStorage for dashboard
+      if (res.data.buyer) {
+        const buyerInfo = {
+          _id: res.data.buyer.id, // This is the buyerId (ObjectId string)
+          name: res.data.buyer.name,
+          email: res.data.buyer.email,
+          // phone and address will be fetched from /buyerprofile in dashboard
+          phone: null,
+          address: null,
+          profileImage: null,
+        };
+
+        localStorage.setItem("customer", JSON.stringify(buyerInfo));
+        localStorage.setItem("buyerId", res.data.buyer.id);
         localStorage.setItem("buyerEmail", res.data.buyer.email);
+      }
 
       // Note: OTP is not returned in login response, only during registration
       // Remove any existing OTP from localStorage since it's not relevant for login

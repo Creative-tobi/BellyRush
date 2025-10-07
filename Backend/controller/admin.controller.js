@@ -8,7 +8,7 @@ const Delivery = require("../model/delivery.model");
 const { Vendor, Menu, Order } = require("../model/vendor.model");
 const upload = require("../config/multer");
 
-// Validation helper function
+
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -19,7 +19,7 @@ const validatePhone = (phone) => {
   return phoneRegex.test(phone);
 };
 
-// Nodemailer email templates
+
 const sendOTPEmail = async (email, otp, name) => {
   try {
     await sendmail({
@@ -110,7 +110,7 @@ async function createAdmin(req, res) {
         "Email sending failed, but admin was created:",
         emailError.message
       );
-      // Don't fail the entire registration if email fails
+      
     }
 
     //generate token
