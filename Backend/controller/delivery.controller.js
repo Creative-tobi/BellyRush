@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const Delivery = require("../model/delivery.model");
 const geocoder = require("../config/geocoder");
 const sendMail = require("../service/nodemailer");
-
+const {Vendor, Menu, Order} = require("../model/vendor.model");
 // Validation helper functions
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -539,6 +539,58 @@ async function findNearbyDeliveries(req, res) {
   }
 }
 
+async function deliverOrder(req, res){
+  try {
+    const { orderId } = req.body;
+    const deliveryId = req.user.id;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    if (order.delivery?.toString() !== deliveryId) {
+      return res.status(403).send({ message: "Not authorized to deliver this order" });
+    }
+
+    if (order.status !== "delivered") {
+      return res.status(400).send({ message: "Order is not out for delivery" });
+    }
+
+    order.status = "delivered";
+    await order.save();
+    const delivery = await Delivery.findById(deliveryId);
+    if(delivery){
+      delivery.status = "available";
+      await delivery.save();
+    }
+
+    res.status(200).send({ message: "Order marked as delivered", order });
+  } catch (error) {
+    console.error("findNearbyDeliveries error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+async function GetAssignOrder(req, res) {
+  try {
+    const deliveryId = req.user.id;
+
+    const orders = await Order.find({
+      delivery: deliveryId,
+      status: {$in: ["assigned", "pickedup"]},
+    })
+    .populate("buyer", "name phone address")
+    .populate("vendor", "restaurantName")
+    .sort({ createdAt: -1 });
+
+    res.status(200).send({message: "Assigned orders fetched successfully", orders});
+  } catch (error) {
+    console.error("GetAssignOrder error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createDelivery,
   resendOTP,
@@ -548,4 +600,6 @@ module.exports = {
   updateStatus,
   updateLocation,
   findNearbyDeliveries,
+  deliverOrder,
+  GetAssignOrder,
 };

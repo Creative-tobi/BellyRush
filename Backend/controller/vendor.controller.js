@@ -696,6 +696,38 @@ async function getVendorMenu(req, res) {
   }
 }
 
+async function assignOrder(req, res){
+  try {
+    const { orderId, deliveryId } = req.body;
+    const vendorId = req.user.id;
+
+    const order = await Order.findById(orderId).populate("vendor");
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    };
+
+    if(order.vendor._id.toString() !== vendorId){ 
+      return res.status(403).send({ message: "Unauthorized to assign this order" });
+    }
+
+    const  delivery = await Delivery.findById(deliveryId);
+    if(!delivery){
+      return res.status(404).send({ message: "Delivery person not found" });
+    }
+
+    if(delivery.status !== "available"){
+      return res.status(400).send({ message: "Delivery person is not available" });
+    }
+
+    order.delivery = deliveryId;
+    order.status = "assigned";
+    await order.save();
+    res.status(200).send({message: "Order assigned to delivery person successfully", order: await order.populate("delivery", "name phone")});
+  } catch (error) {
+    console.error("Assigned order error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
 module.exports = {
   createVendor,
   resendOTP,
@@ -709,4 +741,5 @@ module.exports = {
   updateStatus,
   getVendorOrders,
   getVendorMenu,
+  assignOrder,
 };

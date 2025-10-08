@@ -106,8 +106,7 @@ const Homepage = () => {
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          viewport={{ once: false, margin: "" }} 
-        >
+          viewport={{ once: false, margin: "" }}>
           <div className="md:flex md:justify-center bg-white py-12 px-4 place-items-center">
             <div className="md:w-150">
               <motion.i
@@ -120,7 +119,7 @@ const Homepage = () => {
               </motion.i>
 
               <motion.h1
-                className="text-3xl md:text-5xl font-bold py-4"
+                className="text-2xl md:text-4xl font-bold py-2"
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
@@ -143,12 +142,17 @@ const Homepage = () => {
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: false, margin: "-100px" }}>
-              <img
+              <motion.img
                 src={cicken}
-                alt="rotating"
-                className="w-48 h-48 md:w-64 md:h-64 animate-spin-fast" // Much bigger image
-                whileHover={{ rotate: 360, scale: 1.1 }}
-                transition={{ duration: 0.5 }}
+                alt="Delicious food"
+                className="w-40 h-40 md:w-64 md:h-64"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                whileHover={{
+                  scale: 1.1,
+                  rotate: [0, 360],
+                  transition: { duration: 0.5 },
+                }}
               />
             </motion.div>
           </div>

@@ -19,14 +19,18 @@ const VendorDashboard = () => {
   });
   const [preview, setPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false); // Added for profile dropdown
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  // ✅ New states for delivery assignment
+  const [availableDeliveries, setAvailableDeliveries] = useState([]);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState("");
+  const [assigningOrderId, setAssigningOrderId] = useState(null);
 
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
+    fetchAvailableDeliveries(); // ✅ Fetch available riders
 
-    // Close profile menu when clicking outside
     const handleClickOutside = () => setShowProfileMenu(false);
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
@@ -35,7 +39,6 @@ const VendorDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-
       const vendorRes = await Api.get("/vendorprofile");
       setVendor(vendorRes.data.vendor);
 
@@ -44,12 +47,29 @@ const VendorDashboard = () => {
 
       const menuRes = await Api.get("/vendormenu");
       setMenuItems(menuRes.data.menu);
-
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard ", error);
       alert("Failed to load dashboard data");
       setLoading(false);
+    }
+  };
+
+  // ✅ Fetch available delivery riders
+  const fetchAvailableDeliveries = async () => {
+    try {
+      const res = await Api.get("/delivery/nearby", {
+        params: {
+          // Optional: Use vendor's location if available
+          // latitude: vendor?.location?.coordinates?.[1],
+          // longitude: vendor?.location?.coordinates?.[0],
+          maxDistance: 10000, // 10km radius
+        },
+      });
+      setAvailableDeliveries(res.data.deliveries || []);
+    } catch (error) {
+      console.error("Failed to fetch deliveries:", error);
+      // Don't alert - just show empty list
     }
   };
 
@@ -65,6 +85,37 @@ const VendorDashboard = () => {
     }
   };
 
+  // ✅ Assign order to delivery rider
+  const handleAssignOrder = async (orderId) => {
+    if (!selectedDeliveryId) {
+      alert("Please select a delivery rider");
+      return;
+    }
+
+    try {
+      setAssigningOrderId(orderId);
+      await Api.post("/vendor/assign-order", {
+        orderId,
+        deliveryId: selectedDeliveryId,
+      });
+
+      // Refresh orders to show updated status
+      const ordersRes = await Api.get("/vendororders");
+      setOrders(ordersRes.data.orders);
+
+      alert("Order assigned successfully!");
+      setSelectedDeliveryId(""); // Reset selection
+    } catch (error) {
+      console.error("Assign order error:", error);
+      const message =
+        error.response?.data?.message ||
+        "Failed to assign order to delivery rider";
+      alert(message);
+    } finally {
+      setAssigningOrderId(null);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("vendorId");
@@ -73,22 +124,16 @@ const VendorDashboard = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "confirmed":
-        return "bg-blue-100 text-blue-800";
-      case "preparing":
-        return "bg-orange-100 text-orange-800";
-      case "ready":
-        return "bg-purple-100 text-purple-800";
-      case "delivered":
-        return "bg-green-100 text-green-600";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    const statusMap = {
+      pending: "bg-yellow-100 text-yellow-800",
+      confirmed: "bg-blue-100 text-blue-800",
+      preparing: "bg-orange-100 text-orange-800",
+      ready: "bg-purple-100 text-purple-800",
+      assigned: "bg-green-100 text-green-800", // ✅ Added assigned status
+      delivered: "bg-green-100 text-green-600",
+      cancelled: "bg-red-100 text-red-800",
+    };
+    return statusMap[status] || "bg-gray-100 text-gray-800";
   };
 
   const calculateTotalEarnings = () => {
@@ -103,10 +148,9 @@ const VendorDashboard = () => {
     ).length;
   };
 
-  // Modal handlers
+  // Modal handlers (unchanged)
   const openModal = () => {
     setIsModalOpen(true);
-    // Reset form when opening
     setFormData({
       foodname: "",
       description: "",
@@ -144,13 +188,10 @@ const VendorDashboard = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation
     if (!formData.foodname || !formData.price || !formData.category) {
       alert("Food name, price, and category are required");
       return;
     }
-
     if (isNaN(formData.price) || parseFloat(formData.price) <= 0) {
       alert("Please enter a valid price");
       return;
@@ -162,7 +203,7 @@ const VendorDashboard = () => {
       formDataToSend.append("foodname", formData.foodname);
       formDataToSend.append("description", formData.description);
       formDataToSend.append("category", formData.category);
-      formDataToSend.append("price", parseFloat(formData.price) * 100); // Convert to cents
+      formDataToSend.append("price", parseFloat(formData.price) * 100);
       formDataToSend.append("ingredients", formData.ingredients);
       formDataToSend.append("vendor", vendor?._id);
 
@@ -176,7 +217,7 @@ const VendorDashboard = () => {
 
       alert("Menu item created successfully!");
       closeModal();
-      fetchDashboardData(); // Refresh menu items
+      fetchDashboardData();
     } catch (error) {
       console.error("Error creating menu item:", error);
       alert("Failed to create menu item. Please try again.");
@@ -185,21 +226,16 @@ const VendorDashboard = () => {
     }
   };
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        closeModal();
-      }
+      if (e.key === "Escape") closeModal();
     };
-
     if (isModalOpen) {
       document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden"; // Prevent background scrolling
+      document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
     }
-
     return () => {
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
@@ -219,16 +255,14 @@ const VendorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation - Updated to match Customer Dashboard style */}
+      {/* Header Navigation */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
             </div>
 
-            {/* Search Bar */}
             <div className="flex-1 max-w-lg mx-8">
               <div className="relative">
                 <input
@@ -251,9 +285,7 @@ const VendorDashboard = () => {
               </div>
             </div>
 
-            {/* Navigation Icons */}
             <div className="flex items-center space-x-6">
-              {/* User Profile */}
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -279,7 +311,6 @@ const VendorDashboard = () => {
                   </span>
                 </button>
 
-                {/* Profile Dropdown Menu */}
                 {showProfileMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
@@ -306,7 +337,6 @@ const VendorDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -425,7 +455,6 @@ const VendorDashboard = () => {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
             <button
@@ -458,8 +487,8 @@ const VendorDashboard = () => {
           </nav>
         </div>
 
-        {/* Menu Management Tab with Modal Button */}
         {activeTab === "menu" && (
+          // ... (menu management code unchanged)
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-medium text-gray-900">Menu Items</h2>
@@ -546,7 +575,6 @@ const VendorDashboard = () => {
           </div>
         )}
 
-        {/* Other tabs (orders and earnings) remain the same */}
         {activeTab === "orders" && (
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -574,6 +602,9 @@ const VendorDashboard = () => {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Delivery
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -582,7 +613,7 @@ const VendorDashboard = () => {
                   {orders.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="7"
                         className="px-6 py-4 text-center text-gray-500">
                         No orders found
                       </td>
@@ -611,10 +642,13 @@ const VendorDashboard = () => {
                             {order.status}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {order.delivery?.name || "Not assigned"}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {order.status !== "delivered" &&
                             order.status !== "cancelled" && (
-                              <div className="flex space-x-2">
+                              <div className="flex flex-wrap gap-1">
                                 {order.status === "pending" && (
                                   <button
                                     onClick={() =>
@@ -623,7 +657,7 @@ const VendorDashboard = () => {
                                         "confirmed"
                                       )
                                     }
-                                    className="text-blue-600 hover:text-blue-900">
+                                    className="text-blue-600 hover:text-blue-900 text-xs">
                                     Confirm
                                   </button>
                                 )}
@@ -637,7 +671,7 @@ const VendorDashboard = () => {
                                         "preparing"
                                       )
                                     }
-                                    className="text-orange-600 hover:text-orange-900">
+                                    className="text-orange-600 hover:text-orange-900 text-xs">
                                     Prepare
                                   </button>
                                 )}
@@ -649,9 +683,42 @@ const VendorDashboard = () => {
                                         "ready"
                                       )
                                     }
-                                    className="text-purple-600 hover:text-purple-900">
+                                    className="text-purple-600 hover:text-purple-900 text-xs">
                                     Ready
                                   </button>
+                                )}
+                                {order.status === "ready" && (
+                                  <div className="flex flex-col gap-1 mt-1">
+                                    <select
+                                      value={selectedDeliveryId}
+                                      onChange={(e) =>
+                                        setSelectedDeliveryId(e.target.value)
+                                      }
+                                      className="text-xs border border-gray-300 rounded px-2 py-1">
+                                      <option value="">Select rider</option>
+                                      {availableDeliveries.map((delivery) => (
+                                        <option
+                                          key={delivery._id}
+                                          value={delivery._id}>
+                                          {delivery.name} ({delivery.rating}★)
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() =>
+                                        handleAssignOrder(order._id)
+                                      }
+                                      disabled={assigningOrderId === order._id}
+                                      className={`text-green-600 hover:text-green-900 text-xs ${
+                                        assigningOrderId === order._id
+                                          ? "opacity-50 cursor-not-allowed"
+                                          : ""
+                                      }`}>
+                                      {assigningOrderId === order._id
+                                        ? "Assigning..."
+                                        : "Assign"}
+                                    </button>
+                                  </div>
                                 )}
                                 <button
                                   onClick={() =>
@@ -660,7 +727,7 @@ const VendorDashboard = () => {
                                       "cancelled"
                                     )
                                   }
-                                  className="text-red-600 hover:text-red-900">
+                                  className="text-red-600 hover:text-red-900 text-xs">
                                   Cancel
                                 </button>
                               </div>
@@ -676,6 +743,7 @@ const VendorDashboard = () => {
         )}
 
         {activeTab === "earnings" && (
+          // ... (earnings tab unchanged)
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-medium text-gray-900">
@@ -769,13 +837,12 @@ const VendorDashboard = () => {
         )}
       </main>
 
-      {/* Modal Overlay */}
+      {/* Modal Overlay (unchanged) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div
             className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-screen overflow-y-auto"
             onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">
                 Add New Menu Item
@@ -797,10 +864,7 @@ const VendorDashboard = () => {
                 </svg>
               </button>
             </div>
-
-            {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6">
-              {/* Food Name */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Food Name *
@@ -815,8 +879,6 @@ const VendorDashboard = () => {
                   required
                 />
               </div>
-
-              {/* Category */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category *
@@ -831,8 +893,6 @@ const VendorDashboard = () => {
                   required
                 />
               </div>
-
-              {/* Price */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Price ($) *
@@ -849,8 +909,6 @@ const VendorDashboard = () => {
                   required
                 />
               </div>
-
-              {/* Description */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
@@ -864,8 +922,6 @@ const VendorDashboard = () => {
                   rows="3"
                 />
               </div>
-
-              {/* Ingredients */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Ingredients
@@ -879,8 +935,6 @@ const VendorDashboard = () => {
                   rows="2"
                 />
               </div>
-
-              {/* Image Upload */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Food Image
@@ -925,8 +979,6 @@ const VendorDashboard = () => {
                   </label>
                 </div>
               </div>
-
-              {/* Submit Button */}
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"

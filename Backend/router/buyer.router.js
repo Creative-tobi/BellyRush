@@ -13,6 +13,7 @@ const {
   checkoutOrder,
   getMenu,
   createPaymentIntent,
+  updateAddress,
 } = require("../controller/buyer.controller");
 
 const upload = require("../config/multer");
@@ -32,6 +33,7 @@ router.get("/getorders", authmiddleware, getOrders);
 router.put("/updateitemquantity", authmiddleware, updateItemQuantity);
 router.get("/getallmenu/:vendorId", getMenu);
 router.put("/updateorder", updateOrder);
+router.put("/updateaddress", authmiddleware, updateAddress);
 router.post("/ordercheckout", checkoutOrder);
 router.post("/create-payment-intent/:id", createPaymentIntent);
 

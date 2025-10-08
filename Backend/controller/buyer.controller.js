@@ -96,7 +96,7 @@ const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
 //register buyer
 async function createBuyer(req, res) {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, address } = req.body;
 
     // ✅ Enhanced Validation
     if (!name || !email || !password || !phone) {
@@ -117,7 +117,8 @@ async function createBuyer(req, res) {
         .send({ error: "Password must be at least 6 characters long" });
     }
 
-    const profileImage = req.file ? req.file.path : null;
+    // const profileImage = req.file ? req.file.path : null;
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : null;
 
     const existingBuyer = await Buyer.findOne({ email });
     if (existingBuyer) {
@@ -138,6 +139,7 @@ async function createBuyer(req, res) {
       password: hashedPassword,
       OTP: otp,
       phone,
+      address,
       profileImage,
       otpExpired: Date.now() + 10 * 60 * 1000,
     });
@@ -176,6 +178,7 @@ async function createBuyer(req, res) {
         name: newBuyer.name,
         email: newBuyer.email,
         phone: newBuyer.phone,
+        address: newBuyer.address,
       },
     });
   } catch (error) {
@@ -718,6 +721,36 @@ async function createPaymentIntent(req, res) {
   }
 }
 
+async function updateAddress(req, res) {
+  try {
+    const { address } = req.body; // ✅ Only address needed
+
+    if (!address || address.trim() === "") {
+      return res.status(400).send({ message: "Address is required" });
+    }
+
+    // ✅ Use authenticated user ID (secure & consistent)
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).send({ message: "Buyer not found" });
+    }
+
+    buyer.address = address.trim();
+    await buyer.save();
+
+    res.status(200).send({
+      message: "Address updated successfully",
+      buyer: {
+        id: buyer._id,
+        address: buyer.address,
+      },
+    });
+  } catch (error) {
+    console.error("Update address error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createBuyer,
   resendOTP,
@@ -730,6 +763,8 @@ module.exports = {
   updateItemQuantity,
   updateOrder,
   checkoutOrder,
+  getMenu,
   createPaymentIntent,
   getMenu,
+  updateAddress,
 };

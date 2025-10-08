@@ -12,6 +12,7 @@ const {
   updateStatus,
   getVendorOrders,
   getVendorMenu,
+  assignOrder,
 } = require("../controller/vendor.controller");
 
 const authmiddleware = require("../middleware/auth.middleware");
@@ -32,5 +33,5 @@ router.delete("/deletemenu/:id", deletemenu);
 router.put("/updatestatus/:id",  updateStatus);   
 router.get("/vendororders", authmiddleware, getVendorOrders);
 router.get("/vendormenu", authmiddleware, getVendorMenu);
-
+router.post("/assignorder", authmiddleware, assignOrder);
 module.exports = router;

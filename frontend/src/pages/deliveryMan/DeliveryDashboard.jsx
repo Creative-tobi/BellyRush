@@ -4,17 +4,17 @@ import Api from "../../component/Api";
 
 const DeliveryDashboard = () => {
   const [delivery, setDelivery] = useState(null);
-  const [orders, setOrders] = useState([]);
+  const [assignedOrders, setAssignedOrders] = useState([]); // ✅ Renamed for clarity
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("offline");
   const [location, setLocation] = useState("");
-  const [showProfileMenu, setShowProfileMenu] = useState(false); // Added for profile dropdown
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
+    fetchAssignedOrders(); 
 
-    // Close profile menu when clicking outside
     const handleClickOutside = () => setShowProfileMenu(false);
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
@@ -23,20 +23,25 @@ const DeliveryDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-
       const profileRes = await Api.get("/deliveryprofile");
       setDelivery(profileRes.data.delivery);
       setStatus(profileRes.data.delivery.status || "offline");
-
-      // Note: Your delivery controller doesn't have a get orders endpoint
-      // You might need to add this to your backend
-      setOrders([]); // Placeholder
-
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       alert("Failed to load dashboard data");
       setLoading(false);
+    }
+  };
+
+  
+  const fetchAssignedOrders = async () => {
+    try {
+      const res = await Api.get("/getassignorder");
+      setAssignedOrders(res.data.orders || []);
+    } catch (error) {
+      console.error("Failed to fetch assigned orders:", error);
+      alert("Failed to load assigned orders");
     }
   };
 
@@ -46,7 +51,6 @@ const DeliveryDashboard = () => {
         status: newStatus,
         email: delivery.email,
       });
-
       setStatus(newStatus);
       setDelivery((prev) => ({ ...prev, status: newStatus }));
       alert(`Status updated to ${newStatus}!`);
@@ -57,19 +61,46 @@ const DeliveryDashboard = () => {
   };
 
   const updateLocation = async () => {
-    if (!location.trim()) {
+    if (!location || !location.trim()) {
       alert("Please enter your current location");
       return;
     }
 
     try {
-      await Api.put(`/updatelocation`);
+      await Api.put("/delivery/location", {
+        currentLocation: location.trim(),
+      });
 
+      setDelivery((prev) => ({
+        ...prev,
+        currentLocation: {
+          formattedAddress: location.trim(),
+        },
+      }));
       alert("Location updated successfully!");
-      setLocation("");
     } catch (error) {
       console.error("Error updating location:", error);
-      alert("Failed to update location");
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to update location";
+      alert(message);
+    }
+  };
+
+  // Mark order as delivered
+  const handleDeliverOrder = async (orderId) => {
+    try {
+      await Api.post("/deliveryorder", { orderId }); 
+      alert("Order marked as delivered!");
+      fetchAssignedOrders(); 
+    } catch (error) {
+      console.error("Deliver order error:", error);
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to deliver order";
+      alert(message);
     }
   };
 
@@ -81,16 +112,15 @@ const DeliveryDashboard = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "available":
-        return "bg-green-100 text-green-800";
-      case "busy":
-        return "bg-yellow-100 text-yellow-800";
-      case "offline":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    const statusMap = {
+      available: "bg-green-100 text-green-800",
+      busy: "bg-yellow-100 text-yellow-800",
+      offline: "bg-gray-100 text-gray-800",
+      assigned: "bg-blue-100 text-blue-800",
+      "picked-up": "bg-purple-100 text-purple-800", // ✅ Added for picked-up
+      delivered: "bg-green-100 text-green-800",
+    };
+    return statusMap[status] || "bg-gray-100 text-gray-800";
   };
 
   if (loading) {
@@ -106,16 +136,14 @@ const DeliveryDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation - Updated to match Customer/Vendor Dashboard style */}
+      {/* Header Navigation */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
             </div>
 
-            {/* Search Bar */}
             <div className="flex-1 max-w-lg mx-8">
               <div className="relative">
                 <input
@@ -138,9 +166,7 @@ const DeliveryDashboard = () => {
               </div>
             </div>
 
-            {/* Navigation Icons */}
             <div className="flex items-center space-x-6">
-              {/* User Profile */}
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -166,7 +192,6 @@ const DeliveryDashboard = () => {
                   </span>
                 </button>
 
-                {/* Profile Dropdown Menu */}
                 {showProfileMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
@@ -193,7 +218,6 @@ const DeliveryDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -335,7 +359,7 @@ const DeliveryDashboard = () => {
           <h2 className="text-lg font-medium text-gray-900 mb-4">
             Update Your Location
           </h2>
-          <div className="flex gap-4">
+          <div className="flex justify-between gap-4 flex-wrap">
             <input
               type="text"
               value={location}
@@ -356,12 +380,12 @@ const DeliveryDashboard = () => {
           )}
         </div>
 
-        {/* Orders Section */}
+        {/* ✅ Assigned Orders Section */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Your Orders
+            Assigned Orders
           </h2>
-          {orders.length === 0 ? (
+          {assignedOrders.length === 0 ? (
             <div className="text-center py-8">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400"
@@ -384,7 +408,7 @@ const DeliveryDashboard = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => (
+              {assignedOrders.map((order) => (
                 <div
                   key={order._id}
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -394,31 +418,43 @@ const DeliveryDashboard = () => {
                         Order #{order._id.substring(0, 8)}
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
-                        {order.deliveryaddress}
+                        <strong>From:</strong> {order.vendor?.restaurantName}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Contact: {order.contact}
+                        <strong>To:</strong> {order.deliveryaddress}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <strong>Contact:</strong> {order.contact}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-gray-900">
+                      <p className="font-bold text-gray-900">
                         ${(order.totalamount / 100).toFixed(2)}
                       </p>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusColor(
                           order.status
                         )}`}>
-                        {order.status}
+                        {order.status === "picked-up"
+                          ? "Picked Up"
+                          : order.status}
                       </span>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                      View Details
-                    </button>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                      Mark as Delivered
-                    </button>
+                    {/* Only show "Deliver" button for deliverable orders */}
+                    {["assigned", "picked-up"].includes(order.status) && (
+                      <button
+                        onClick={() => handleDeliverOrder(order._id)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                        Mark as Delivered
+                      </button>
+                    )}
+                    {order.status === "delivered" && (
+                      <span className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium">
+                        Delivered
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

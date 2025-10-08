@@ -8,6 +8,7 @@ const buyerSchema = new mongoose.Schema({
   OTP: { type: Number, default: null },
   otpExpired: Date,
   isVerified: { type: Boolean, default: false },
+  address: { type: String },
   phone: { type: String, required: true, unique: true },
   profileImage: { type: String, default: "" },
 
