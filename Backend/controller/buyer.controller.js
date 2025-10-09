@@ -3,9 +3,9 @@ const Buyer = require("../model/buyer.model");
 const { Vendor, Order, Menu } = require("../model/vendor.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const upload = require("../config/multer");
+const { cloudinary, storage } = require("../config/cloudinary");
 const stripe = require("../config/stripe");
-const sendMail = require("../service/nodemailer");
+const { sendEmail } = require("../service/nodemailer");
 
 // Validation helper functions
 const validateEmail = (email) => {
@@ -21,7 +21,7 @@ const validatePhone = (phone) => {
 // Nodemailer email templates
 const sendOTPEmail = async (email, otp, name) => {
   try {
-    await sendMail({
+    await sendEmail({
       to: email,
       subject: "Your BellyRush Buyer OTP Verification",
       html: `
@@ -46,7 +46,7 @@ const sendOTPEmail = async (email, otp, name) => {
 
 const sendVerificationSuccessEmail = async (email, name) => {
   try {
-    await sendMail({
+    await sendEmail({
       to: email,
       subject: "BellyRush Buyer Account Verified",
       html: `
@@ -67,7 +67,7 @@ const sendVerificationSuccessEmail = async (email, name) => {
 
 const sendOrderConfirmationEmail = async (email, name, orderDetails) => {
   try {
-    await sendMail({
+    await sendEmail({
       to: email,
       subject: "BellyRush Order Confirmation",
       html: `
@@ -98,7 +98,7 @@ async function createBuyer(req, res) {
   try {
     const { name, email, password, phone, address } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!name || !email || !password || !phone) {
       return res.status(400).send({ error: "All fields are required" });
     }
@@ -117,8 +117,10 @@ async function createBuyer(req, res) {
         .send({ error: "Password must be at least 6 characters long" });
     }
 
-    // const profileImage = req.file ? req.file.path : null;
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : null;
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path;
+    }
 
     const existingBuyer = await Buyer.findOne({ email });
     if (existingBuyer) {
@@ -223,6 +225,7 @@ async function resendOTP(req, res) {
     // Send OTP email
     try {
       await sendOTPEmail(email, otp, buyer.name);
+      console.log("Resent OTP:", otp);
     } catch (emailError) {
       console.error("Failed to send OTP email:", emailError);
       return res.status(500).send({ message: "Failed to send OTP email" });
@@ -385,12 +388,10 @@ async function getVendors(req, res) {
     if (!allVendors || allVendors.length === 0) {
       return res.status(404).send({ message: "No vendors found" });
     }
-    res
-      .status(200)
-      .send({
-        message: "Available vendors fetched successfully",
-        vendors: allVendors,
-      });
+    res.status(200).send({
+      message: "Available vendors fetched successfully",
+      vendors: allVendors,
+    });
   } catch (error) {
     console.error("Get vendors error:", error);
     res.status(500).send({ error: "Internal server error" });
@@ -400,13 +401,12 @@ async function getVendors(req, res) {
 //GET MENU LIST
 async function getMenu(req, res) {
   try {
-    const { vendorId } = req.params; 
+    const { vendorId } = req.params;
 
     if (!vendorId) {
       return res.status(400).json({ message: "Vendor ID is required" });
     }
 
-    
     const allMenu = await Menu.find({ vendor: vendorId }).select("-password");
 
     if (!allMenu || allMenu.length === 0) {
@@ -417,7 +417,7 @@ async function getMenu(req, res) {
 
     res.status(200).json({
       message: "Menu fetched successfully",
-      menu: allMenu, 
+      menu: allMenu,
     });
   } catch (error) {
     console.error("Get menu error:", error);
@@ -492,6 +492,7 @@ async function createOrder(req, res) {
 
     if (existingItem) {
       existingItem.quantity += quantity || 1;
+      return res.status(200).send({message: "Item already exist in cart, increase quality by 1"});
     } else {
       order.items.push({
         menuId: menu._id,
@@ -550,7 +551,9 @@ async function updateItemQuantity(req, res) {
     const { orderId, menuId, quantity } = req.body;
 
     if (!orderId || !menuId || quantity == null) {
-      return res.status(400).send({ message: "orderId, menuId, and quantity are required" });
+      return res
+        .status(400)
+        .send({ message: "orderId, menuId, and quantity are required" });
     }
 
     const order = await Order.findOne({ _id: orderId, buyer: buyerId });
@@ -558,17 +561,22 @@ async function updateItemQuantity(req, res) {
       return res.status(404).send({ message: "Order not found" });
     }
 
-    const item = order.items.find(item => item.menuId.toString() === menuId);
+    const item = order.items.find((item) => item.menuId.toString() === menuId);
     if (!item) {
       return res.status(404).send({ message: "Item not found in order" });
     }
 
     item.quantity = quantity;
     if (quantity <= 0) {
-      order.items = order.items.filter(item => item.menuId.toString() !== menuId);
+      order.items = order.items.filter(
+        (item) => item.menuId.toString() !== menuId
+      );
     }
 
-    order.totalamount = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    order.totalamount = order.items.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
 
     await order.save();
 
@@ -706,7 +714,7 @@ async function createPaymentIntent(req, res) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: order.totalamount,
       currency: "usd",
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       metadata: { orderId: order._id.toString() },
       description: `Order #${order._id} payment`,
     });
@@ -751,6 +759,55 @@ async function updateAddress(req, res) {
   }
 }
 
+//update buyers acount
+async function updateBuyer(req, res) {
+  try {
+    const buyerId = req.user?.id;
+    if (!buyerId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not authenticated" });
+    }
+
+    const body = req.body || {};
+
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path;
+    }
+
+    const { name, email, phone, address } = body;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    if (buyer._id.toString() !== buyerId.toString()) {
+      return res.status(403).json({
+        message: "Forbidden: You can only update your own buyer profile",
+      });
+    }
+
+    if (profileImage !== undefined && profileImage !== null) {
+      buyer.profileImage = profileImage;
+    }
+    if (name !== undefined) buyer.name = name;
+    if (email !== undefined) buyer.email = email;
+    if (phone !== undefined) buyer.phone = phone;
+    if (address !== undefined) buyer.address = address;
+
+    const updatedBuyer = await buyer.save();
+
+    return res.status(200).json({
+      message: "Buyer details updated successfully",
+      buyer: updatedBuyer,
+    });
+  } catch (error) {
+    console.error("Update buyer error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
 module.exports = {
   createBuyer,
   resendOTP,
@@ -767,4 +824,5 @@ module.exports = {
   createPaymentIntent,
   getMenu,
   updateAddress,
+  updateBuyer,
 };

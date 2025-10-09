@@ -82,7 +82,7 @@ const CustomerOTP = () => {
     setResendLoading(true);
     try {
       // Fixed: Use correct endpoint for resend OTP
-      const res = await Api.post("/resendbuyerotp", { email: buyerEmail });
+      const res = await Api.put("/updateotp", { email: buyerEmail });
       console.log("Resend OTP", res.data);
       alert("OTP resent successfully! Please check your email.");
     } catch (error) {

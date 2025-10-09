@@ -83,7 +83,7 @@ const VendorOTP = () => {
 
     setResendLoading(true);
     try {
-      const res = await Api.post("/resendvendorotp", { email: vendorEmail });
+      const res = await Api.put("/resendvendorotp", { email: vendorEmail });
       console.log("Resend OTP", res.data);
       alert("OTP resent successfully! Please check your email.");
     } catch (error) {

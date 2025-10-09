@@ -85,7 +85,7 @@ const DeliveryOTP = () => {
     setResendLoading(true);
     try {
       // Fixed: Use correct endpoint for resend OTP
-      const res = await Api.post("/resenddeliveryotp", {
+      const res = await Api.put("/resenddeliveryotp", {
         email: deliveryEmail,
       });
       console.log("Resend OTP", res.data);

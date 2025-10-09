@@ -14,9 +14,10 @@ const {
   getMenu,
   createPaymentIntent,
   updateAddress,
+  updateBuyer,
 } = require("../controller/buyer.controller");
 
-const upload = require("../config/multer");
+const  upload  = require("../config/multer");
 const authmiddleware = require("../middleware/auth.middleware");
 const rolemiddleware = require("../middleware/role.middleware");
 
@@ -33,6 +34,12 @@ router.get("/getorders", authmiddleware, getOrders);
 router.put("/updateitemquantity", authmiddleware, updateItemQuantity);
 router.get("/getallmenu/:vendorId", getMenu);
 router.put("/updateorder", updateOrder);
+router.put(
+  "/updatebuyer",
+  authmiddleware,
+  upload.single("profileImage"),
+  updateBuyer
+);
 router.put("/updateaddress", authmiddleware, updateAddress);
 router.post("/ordercheckout", checkoutOrder);
 router.post("/create-payment-intent/:id", createPaymentIntent);

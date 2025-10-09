@@ -76,7 +76,7 @@ const AdminOTP = () => {
 
     setResendLoading(true);
     try {
-      const res = await Api.post("/resendotp", { email: adminEmail });
+      const res = await Api.put("/resendotp", { email: adminEmail });
       console.log("Resend OTP", res.data);
       alert("OTP resent successfully! Please check your email.");
     } catch (error) {

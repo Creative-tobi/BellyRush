@@ -1,19 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Api from "../../component/Api";
+import Api, { BACKEND_BASE_URL } from "../../component/Api";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DeliveryDashboard = () => {
   const [delivery, setDelivery] = useState(null);
-  const [assignedOrders, setAssignedOrders] = useState([]); // ✅ Renamed for clarity
+  const [assignedOrders, setAssignedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("offline");
   const [location, setLocation] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // ✅ Profile Modal States (mirroring CustomerDashboard)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    vehicleType: "",
+    licensePlate: "",
+  });
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
-    fetchAssignedOrders(); 
+    fetchAssignedOrders();
 
     const handleClickOutside = () => setShowProfileMenu(false);
     document.addEventListener("click", handleClickOutside);
@@ -25,7 +40,13 @@ const DeliveryDashboard = () => {
       setLoading(true);
       const profileRes = await Api.get("/deliveryprofile");
       setDelivery(profileRes.data.delivery);
-      setStatus(profileRes.data.delivery.status || "offline");
+      setProfileData({
+        name: profileRes.data.delivery.name || "",
+        email: profileRes.data.delivery.email || "",
+        phone: profileRes.data.delivery.phone || "",
+        vehicleType: profileRes.data.delivery.vehicleType || "",
+        licensePlate: profileRes.data.delivery.licensePlate || "",
+      });
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -34,7 +55,6 @@ const DeliveryDashboard = () => {
     }
   };
 
-  
   const fetchAssignedOrders = async () => {
     try {
       const res = await Api.get("/getassignorder");
@@ -88,12 +108,11 @@ const DeliveryDashboard = () => {
     }
   };
 
-  // Mark order as delivered
   const handleDeliverOrder = async (orderId) => {
     try {
-      await Api.post("/deliveryorder", { orderId }); 
+      await Api.post("/deliveryorder", { orderId });
       alert("Order marked as delivered!");
-      fetchAssignedOrders(); 
+      fetchAssignedOrders();
     } catch (error) {
       console.error("Deliver order error:", error);
       const message =
@@ -111,13 +130,75 @@ const DeliveryDashboard = () => {
     navigate("/delivery/login");
   };
 
+  // ✅ Profile Modal Handlers (mirroring customer)
+  const openProfileModal = () => {
+    setIsProfileModalOpen(true);
+    setShowProfileMenu(false);
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setProfileImageFile(null);
+    setProfileImagePreview(null);
+  };
+
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImageFile(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    try {
+      const formData = new FormData();
+      Object.keys(profileData).forEach((key) => {
+        if (profileData[key]) formData.append(key, profileData[key]);
+      });
+      if (profileImageFile) {
+        formData.append("profileImage", profileImageFile);
+      }
+
+      const res = await Api.put("/deliveryprofile", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setDelivery(res.data.delivery);
+      setProfileData({
+        name: res.data.delivery.name,
+        email: res.data.delivery.email,
+        phone: res.data.delivery.phone,
+        vehicleType: res.data.delivery.vehicleType,
+        licensePlate: res.data.delivery.licensePlate,
+      });
+      alert("Profile updated successfully!");
+      closeProfileModal();
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     const statusMap = {
       available: "bg-green-100 text-green-800",
       busy: "bg-yellow-100 text-yellow-800",
       offline: "bg-gray-100 text-gray-800",
       assigned: "bg-blue-100 text-blue-800",
-      "picked-up": "bg-purple-100 text-purple-800", // ✅ Added for picked-up
+      "picked-up": "bg-purple-100 text-purple-800",
       delivered: "bg-green-100 text-green-800",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800";
@@ -201,7 +282,7 @@ const DeliveryDashboard = () => {
                       <p className="text-sm text-gray-500">{delivery?.email}</p>
                     </div>
                     <button
-                      onClick={() => navigate("/delivery/profile")}
+                      onClick={openProfileModal}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       Profile Settings
                     </button>
@@ -380,7 +461,7 @@ const DeliveryDashboard = () => {
           )}
         </div>
 
-        {/* ✅ Assigned Orders Section */}
+        {/* Assigned Orders */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">
             Assigned Orders
@@ -442,7 +523,6 @@ const DeliveryDashboard = () => {
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    {/* Only show "Deliver" button for deliverable orders */}
                     {["assigned", "picked-up"].includes(order.status) && (
                       <button
                         onClick={() => handleDeliverOrder(order._id)}
@@ -462,6 +542,176 @@ const DeliveryDashboard = () => {
           )}
         </div>
       </main>
+
+      {/* ✅ PROFILE SETTINGS MODAL — IDENTICAL TO CUSTOMER DASHBOARD */}
+      <AnimatePresence>
+        {isProfileModalOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeProfileModal}>
+            <motion.div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Edit Profile
+                </h2>
+                <button
+                  onClick={closeProfileModal}
+                  className="text-gray-400 hover:text-gray-600">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <form onSubmit={handleProfileSubmit} className="p-4 sm:p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={profileData.name}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profileData.email}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    readOnly
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone *
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={profileData.phone}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vehicle Type
+                  </label>
+                  <input
+                    type="text"
+                    name="vehicleType"
+                    value={profileData.vehicleType}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Plate
+                  </label>
+                  <input
+                    type="text"
+                    name="licensePlate"
+                    value={profileData.licensePlate}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Image
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <input
+                      type="file"
+                      id="profileImageUpload"
+                      accept="image/*"
+                      onChange={handleProfileImageChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="profileImageUpload"
+                      className="cursor-pointer flex flex-col items-center">
+                      {profileImagePreview ? (
+                        <img
+                          src={profileImagePreview}
+                          alt="Profile Preview"
+                          className="w-24 h-24 object-cover rounded-lg mx-auto"
+                        />
+                      ) : delivery?.profileImage ? (
+                        <img
+                          src={delivery.profileImage}
+                          alt="Current Profile"
+                          className="w-24 h-24 object-cover rounded-lg mx-auto"
+                        />
+                      ) : (
+                        <>
+                          <svg
+                            className="w-12 h-12 text-gray-400 mx-auto"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span className="mt-2 text-sm text-gray-600">
+                            Click to upload image
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={closeProfileModal}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                    {isSavingProfile ? "Saving..." : "Save Profile"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

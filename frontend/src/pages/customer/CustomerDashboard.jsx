@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Api from "../../component/Api";
+import Api, { BACKEND_BASE_URL } from "../../component/Api";
 import { loadStripe } from "@stripe/stripe-js";
 import { FaStar } from "react-icons/fa";
-import {
-  motion,
-  AnimatePresence,
-} from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import cicken from "/src/media/cicken.jpg";
 import delivery from "/src/media/delivey.jpg";
 import vendor from "/src/media/vendor.jpg";
@@ -30,6 +27,18 @@ const CustomerDashboard = () => {
   const [isAddressDirty, setIsAddressDirty] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
+  // ✅ Profile Modal States
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+  });
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,6 +53,13 @@ const CustomerDashboard = () => {
       setLoading(true);
       const profileRes = await Api.get("/buyerprofile");
       setCustomer(profileRes.data.buyer);
+      setProfileData({
+        name: profileRes.data.buyer.name || "",
+        email: profileRes.data.buyer.email || "",
+        phone: profileRes.data.buyer.phone || "",
+        address: profileRes.data.buyer.address || "",
+      });
+
       const vendorsRes = await Api.get("/restaurants");
       setVendors(vendorsRes.data.vendors || []);
       const ordersRes = await Api.get("/getorders");
@@ -108,12 +124,10 @@ const CustomerDashboard = () => {
         alert("Please login first");
         return;
       }
-
       const currentCart = getCurrentCart();
       const isItemInCart = currentCart?.items?.some(
         (item) => item.menuId === menuId
       );
-
       const deliveryaddress =
         customer.address || "Please update your delivery address in profile";
       const contact =
@@ -123,7 +137,6 @@ const CustomerDashboard = () => {
         alert("Please update your phone number in profile with a valid format");
         return;
       }
-
       const payload = {
         menuId,
         buyerId: customer._id,
@@ -131,11 +144,9 @@ const CustomerDashboard = () => {
         contact,
         quantity,
       };
-
       const response = await Api.post("/createorder", payload);
       const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders || []);
-
       if (isItemInCart) {
         alert("Item already in cart! Quantity increased.");
       } else {
@@ -188,11 +199,9 @@ const CustomerDashboard = () => {
         setPaymentStep(false);
         return;
       }
-
       // PROD: Use real Stripe (you'll need Elements)
       const stripe = await stripePromise;
       if (!stripe || !clientSecret) return;
-
       const { error, paymentIntent } = await stripe.confirmCardPayment(
         clientSecret,
         {
@@ -207,9 +216,7 @@ const CustomerDashboard = () => {
           },
         }
       );
-
       if (error) throw error;
-
       if (paymentIntent?.status === "succeeded") {
         await Api.post("/ordercheckout", {
           orderId: selectedOrder._id,
@@ -226,6 +233,7 @@ const CustomerDashboard = () => {
       alert("Payment failed: " + (error.message || "Unknown error"));
     }
   };
+
   const handleUpdateQuantity = async (orderId, menuId, newQuantity) => {
     if (newQuantity < 0) return;
     try {
@@ -263,6 +271,68 @@ const CustomerDashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate("/customer/login");
+  };
+
+  // ✅ Profile Modal Handlers
+  const openProfileModal = () => {
+    setIsProfileModalOpen(true);
+    setShowProfileMenu(false);
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setProfileImageFile(null);
+    setProfileImagePreview(null);
+  };
+
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImageFile(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    try {
+      const formData = new FormData();
+      Object.keys(profileData).forEach((key) => {
+        if (profileData[key]) formData.append(key, profileData[key]);
+      });
+      if (profileImageFile) {
+        formData.append("profileImage", profileImageFile);
+      }
+
+      const res = await Api.put("/updatebuyer", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setCustomer(res.data.buyer);
+      setProfileData({
+        name: res.data.buyer.name,
+        email: res.data.buyer.email,
+        phone: res.data.buyer.phone,
+        address: res.data.buyer.address,
+      });
+
+      alert("Profile updated successfully!");
+      closeProfileModal();
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const getCurrentCart = () => {
@@ -392,7 +462,7 @@ const CustomerDashboard = () => {
                       My Orders
                     </button>
                     <button
-                      onClick={() => navigate("/customer/profile")}
+                      onClick={openProfileModal} // ✅ Open modal instead of navigating
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       Profile Settings
                     </button>
@@ -479,7 +549,6 @@ const CustomerDashboard = () => {
               {filteredVendors.length} restaurants found
             </p>
           </div>
-
           {filteredVendors.length === 0 ? (
             <div className="text-center py-12">
               <svg
@@ -969,6 +1038,165 @@ const CustomerDashboard = () => {
                   </>
                 )}
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ✅ Profile Modal */}
+      <AnimatePresence>
+        {isProfileModalOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeProfileModal}>
+            <motion.div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Edit Profile
+                </h2>
+                <button
+                  onClick={closeProfileModal}
+                  className="text-gray-400 hover:text-gray-600">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <form onSubmit={handleProfileSubmit} className="p-4 sm:p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={profileData.name}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profileData.email}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone *
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={profileData.phone}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address *
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={profileData.address}
+                    onChange={handleProfileChange}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                    required
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Image
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <input
+                      type="file"
+                      id="profileImageUpload"
+                      accept="image/*"
+                      onChange={handleProfileImageChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="profileImageUpload"
+                      className="cursor-pointer flex flex-col items-center">
+                      {profileImagePreview ? (
+                        <img
+                          src={profileImagePreview}
+                          alt="Profile Preview"
+                          className="w-24 h-24 object-cover rounded-lg mx-auto"
+                        />
+                      ) : customer?.profileImage ? (
+                        <img
+                          src={customer.profileImage}
+                          alt="Current Profile"
+                          className="w-24 h-24 object-cover rounded-lg mx-auto"
+                        />
+                      ) : (
+                        <>
+                          <svg
+                            className="w-12 h-12 text-gray-400 mx-auto"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span className="mt-2 text-sm text-gray-600">
+                            Click to upload image
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={closeProfileModal}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                    {isSavingProfile ? "Saving..." : "Save Profile"}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

@@ -1,13 +1,12 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendmail = require("../service/nodemailer");
+const {sendEmail }= require("../service/nodemailer");
 const Admin = require("../model/admin.model");
 const Buyer = require("../model/buyer.model");
 const Delivery = require("../model/delivery.model");
 const { Vendor, Menu, Order } = require("../model/vendor.model");
-const upload = require("../config/multer");
-
+const { cloudinary, storage } = require("../config/cloudinary");
 
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,10 +18,9 @@ const validatePhone = (phone) => {
   return phoneRegex.test(phone);
 };
 
-
 const sendOTPEmail = async (email, otp, name) => {
   try {
-    await sendmail({
+    await sendEmail({
       to: email,
       subject: "Your BellyRush Admin OTP Verification",
       html: `
@@ -75,7 +73,14 @@ async function createAdmin(req, res) {
       });
     }
 
-    const profileImage = req.file ? req.file.path : null;
+   let profileImage = null;
+   if (req.file) {
+     profileImage = req.file.path;
+   }
+    const existingBuyer = await Buyer.findOne({ email });
+    if (existingBuyer) {
+      return res.status(400).send({ error: "Buyer email already exists" });
+    }
 
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
@@ -110,7 +115,6 @@ async function createAdmin(req, res) {
         "Email sending failed, but admin was created:",
         emailError.message
       );
-      
     }
 
     //generate token
@@ -243,7 +247,7 @@ async function verifyOTP(req, res) {
 
     // Send verification success email
     try {
-      await sendmail({
+      await sendEmail({
         to: email,
         subject: "BellyRush Admin Account Verified",
         html: `
@@ -379,12 +383,10 @@ async function getBuyer(req, res) {
 async function getDelivery(req, res) {
   try {
     const allDelivery = await Delivery.find().select("-password");
-    res
-      .status(200)
-      .send({
-        message: "All delivery personnel fetched successfully",
-        allDelivery,
-      });
+    res.status(200).send({
+      message: "All delivery personnel fetched successfully",
+      allDelivery,
+    });
   } catch (error) {
     console.error("Get delivery error:", error);
     res.status(500).send({ error: "Internal server error" });
@@ -394,7 +396,8 @@ async function getDelivery(req, res) {
 //get all menu
 async function getMenu(req, res) {
   try {
-    const allMenu = await Menu.find().select("-password");
+    const allMenu = await Menu.find().select("-password")
+    .populate("vendor", "restaurantName");
     res
       .status(200)
       .send({ message: "All menu items fetched successfully", allMenu });
@@ -407,7 +410,10 @@ async function getMenu(req, res) {
 //get all order
 async function getOrder(req, res) {
   try {
-    const allOrder = await Order.find().select("-password");
+    const allOrder = await Order.find()
+      .select("-password")
+      .populate("buyer", "name email") 
+      .populate("vendor", "restaurantName");
     res
       .status(200)
       .send({ message: "All orders fetched successfully", allOrder });
@@ -463,12 +469,10 @@ async function deleteDelivery(req, res) {
     }
 
     const deletedDelivery = await Delivery.findByIdAndDelete(req.params.id);
-    res
-      .status(200)
-      .send({
-        message: "Delivery personnel deleted successfully",
-        deletedDelivery,
-      });
+    res.status(200).send({
+      message: "Delivery personnel deleted successfully",
+      deletedDelivery,
+    });
   } catch (error) {
     console.error("Delete delivery error:", error);
     res.status(500).send({ error: "Internal server error" });
@@ -511,6 +515,56 @@ async function deleteOrder(req, res) {
   }
 }
 
+//update admin's account
+async function updateAdmin(req, res) {
+  try {
+    const adminId = req.user?.id;
+    if (!adminId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not authenticated" });
+    }
+
+    const body = req.body || {};
+
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path;
+    }
+
+    const { name, email, phone, address } = body;
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (admin._id.toString() !== adminId.toString()) {
+      return res.status(403).json({
+        message: "Forbidden: You can only update your own admin profile",
+      });
+    }
+
+    if (profileImage !== undefined && profileImage !== null) {
+      admin.profileImage = profileImage;
+    }
+    if (name !== undefined) admin.name = name;
+    if (email !== undefined) admin.email = email;
+    if (phone !== undefined) admin.phone = phone;
+    if (address !== undefined) admin.address = address;
+
+    const updatedAdmin = await admin.save();
+
+    return res.status(200).json({
+      message: "Admin details updated successfully",
+      admin: updatedAdmin,
+    });
+  } catch (error) {
+    console.error("Update admin error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createAdmin,
   resendOTP,
@@ -527,4 +581,5 @@ module.exports = {
   deleteDelivery,
   deleteMenu,
   deleteOrder,
+  updateAdmin,
 };

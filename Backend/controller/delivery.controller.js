@@ -1,9 +1,13 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const {
+  cloudinary,
+  storage,
+} = require("../config/cloudinary");
 const Delivery = require("../model/delivery.model");
 const geocoder = require("../config/geocoder");
-const sendMail = require("../service/nodemailer");
-const {Vendor, Menu, Order} = require("../model/vendor.model");
+const { sendEmail }= require("../service/nodemailer");
+const { Vendor, Menu, Order } = require("../model/vendor.model");
 // Validation helper functions
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,7 +22,7 @@ const validatePhone = (phone) => {
 // Nodemailer email templates
 const sendOTPEmail = async (email, otp, name) => {
   try {
-    await sendMail({
+    await sendEmail({
       to: email,
       subject: "Your BellyRush Delivery OTP Verification",
       html: `
@@ -43,7 +47,7 @@ const sendOTPEmail = async (email, otp, name) => {
 
 const sendVerificationSuccessEmail = async (email, name) => {
   try {
-    await sendMail({
+    await sendEmail({
       to: email,
       subject: "BellyRush Delivery Account Verified",
       html: `
@@ -103,12 +107,13 @@ async function createDelivery(req, res) {
         .send({ error: "Password must be at least 6 characters long" });
     }
 
-    const profileImage = req.file ? req.file.path : null;
-
-    // Check if delivery man already exists
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path;
+    }
     const existingDelivery = await Delivery.findOne({ email });
     if (existingDelivery) {
-      return res.status(400).send({ error: "Rider's email already exists" });
+      return res.status(400).send({ error: "Delivery email already exists" });
     }
 
     // Geocode the currentLocation with error handling
@@ -539,7 +544,7 @@ async function findNearbyDeliveries(req, res) {
   }
 }
 
-async function deliverOrder(req, res){
+async function deliverOrder(req, res) {
   try {
     const { orderId } = req.body;
     const deliveryId = req.user.id;
@@ -550,7 +555,9 @@ async function deliverOrder(req, res){
     }
 
     if (order.delivery?.toString() !== deliveryId) {
-      return res.status(403).send({ message: "Not authorized to deliver this order" });
+      return res
+        .status(403)
+        .send({ message: "Not authorized to deliver this order" });
     }
 
     if (order.status !== "delivered") {
@@ -560,7 +567,7 @@ async function deliverOrder(req, res){
     order.status = "delivered";
     await order.save();
     const delivery = await Delivery.findById(deliveryId);
-    if(delivery){
+    if (delivery) {
       delivery.status = "available";
       await delivery.save();
     }
@@ -578,13 +585,15 @@ async function GetAssignOrder(req, res) {
 
     const orders = await Order.find({
       delivery: deliveryId,
-      status: {$in: ["assigned", "pickedup"]},
+      status: { $in: ["assigned", "pickedup"] },
     })
-    .populate("buyer", "name phone address")
-    .populate("vendor", "restaurantName")
-    .sort({ createdAt: -1 });
+      .populate("buyer", "name phone address")
+      .populate("vendor", "restaurantName")
+      .sort({ createdAt: -1 });
 
-    res.status(200).send({message: "Assigned orders fetched successfully", orders});
+    res
+      .status(200)
+      .send({ message: "Assigned orders fetched successfully", orders });
   } catch (error) {
     console.error("GetAssignOrder error:", error);
     res.status(500).send({ error: "Internal server error" });

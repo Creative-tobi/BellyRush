@@ -1,11 +1,11 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendEmail = require("../service/nodemailer");
+const{ sendEmail } = require("../service/nodemailer");
 const Buyer = require("../model/buyer.model");
 const Delivery = require("../model/delivery.model");
 const { Vendor, Menu, Order } = require("../model/vendor.model");
-const upload = require("../config/multer");
+const { cloudinary, storage } = require("../config/multer");
 
 // Validation helper functions
 const validateEmail = (email) => {
@@ -86,9 +86,16 @@ async function createVendor(req, res) {
       payout = 0,
     } = req.body;
 
-    const profileImage = req.file ? req.file.path : null;
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path;
+    }
+    const existingBuyer = await Buyer.findOne({ email });
+    if (existingBuyer) {
+      return res.status(400).send({ error: "Buyer email already exists" });
+    }
 
-    // ✅ Enhanced Validation
+    //  Enhanced Validation
     if (!restaurantName || !email || !password || !phone || !address) {
       return res.status(400).send({
         error:
@@ -391,19 +398,21 @@ async function vendorProfile(req, res) {
 //updating vendor details
 async function updateVendor(req, res) {
   try {
-    const { email } = req.body;
-
-    // ✅ Enhanced Validation
-    if (!email) {
-      return res.status(400).send({ message: "Email is required" });
+    const vendorId = req.user?.id;
+    if (!vendorId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not authenticated" });
     }
 
-    if (!validateEmail(email)) {
-      return res.status(400).send({ message: "Valid email is required" });
+    const body = req.body || {};
+
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path; 
     }
 
     const {
-      profileImage,
       description,
       hours,
       status,
@@ -414,23 +423,27 @@ async function updateVendor(req, res) {
       commission,
       payout,
       menu,
-    } = req.body;
+    } = body;
 
-    const restaurant = await Vendor.findOne({ email });
-
+  
+    const restaurant = await Vendor.findById(vendorId);
     if (!restaurant) {
-      return res.status(404).send({ message: "Vendor not available" });
+      return res.status(404).json({ message: "Vendor not found" });
     }
 
-    // Ensure only the logged-in vendor can update their own details
-    if (restaurant._id.toString() !== req.user.id) {
+  
+    if (restaurant._id.toString() !== vendorId.toString()) {
       return res
         .status(403)
-        .send({ message: "Unauthorized to update this vendor" });
+        .json({
+          message: "Forbidden: You can only update your own vendor profile",
+        });
     }
 
-    // Update fields only if provided
-    if (profileImage !== undefined) restaurant.profileImage = profileImage;
+
+    if (profileImage !== undefined && profileImage !== null) {
+      restaurant.profileImage = profileImage;
+    }
     if (description !== undefined) restaurant.description = description;
     if (hours !== undefined) restaurant.hours = hours;
     if (status !== undefined) restaurant.status = status;
@@ -442,21 +455,19 @@ async function updateVendor(req, res) {
     if (payout !== undefined) restaurant.payout = payout;
     if (menu !== undefined) restaurant.menu = menu;
 
-    await restaurant.save();
-    return res
-      .status(200)
-      .send({
-        message: "Vendor details updated successfully",
-        vendor: restaurant,
-      });
+
+    const updatedVendor = await restaurant.save();
+
+    return res.status(200).json({
+      message: "Vendor details updated successfully",
+      vendor: updatedVendor,
+    });
   } catch (error) {
     console.error("Update vendor error:", error);
-    res.status(500).send({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
-
 //creating menu
-// Create Menu
 async function createMenu(req, res) {
   try {
     const { foodname, description, category, price, ingredients, vendor } =
@@ -482,11 +493,9 @@ async function createMenu(req, res) {
     }
 
     if (!vendorDoc.isVerified) {
-      return res
-        .status(400)
-        .send({
-          message: "Vendor account must be verified to create menu items",
-        });
+      return res.status(400).send({
+        message: "Vendor account must be verified to create menu items",
+      });
     }
 
     // Ensure only the logged-in vendor can create menu items for their restaurant
@@ -496,7 +505,10 @@ async function createMenu(req, res) {
     //     .send({ message: "Unauthorized to create menu for this vendor" });
     // }
 
-    const profileImage = req.file ? req.file.path : null;
+   let profileImage = null;
+   if (req.file) {
+     profileImage = req.file.path;
+   }
 
     const newMenu = await Menu.create({
       vendor: vendorDoc._id,
@@ -601,7 +613,7 @@ async function updateStatus(req, res) {
     const { id } = req.params; // Fixed: was req.params.id instead of req.params
     const { status } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!id) {
       return res.status(400).send({ message: "Order ID is required" });
     }
@@ -612,10 +624,9 @@ async function updateStatus(req, res) {
 
     const validStatuses = [
       "pending",
-      "confirmed",
-      "preparing",
-      "ready",
-      "delivered",
+      "paid",
+      "inprogress",
+      "completed",
       "cancelled",
     ];
     if (!validStatuses.includes(status)) {
@@ -696,7 +707,7 @@ async function getVendorMenu(req, res) {
   }
 }
 
-async function assignOrder(req, res){
+async function assignOrder(req, res) {
   try {
     const { orderId, deliveryId } = req.body;
     const vendorId = req.user.id;
@@ -704,27 +715,51 @@ async function assignOrder(req, res){
     const order = await Order.findById(orderId).populate("vendor");
     if (!order) {
       return res.status(404).send({ message: "Order not found" });
-    };
-
-    if(order.vendor._id.toString() !== vendorId){ 
-      return res.status(403).send({ message: "Unauthorized to assign this order" });
     }
 
-    const  delivery = await Delivery.findById(deliveryId);
-    if(!delivery){
+    if (order.vendor._id.toString() !== vendorId) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to assign this order" });
+    }
+
+    const delivery = await Delivery.findById(deliveryId);
+    if (!delivery) {
       return res.status(404).send({ message: "Delivery person not found" });
     }
 
-    if(delivery.status !== "available"){
-      return res.status(400).send({ message: "Delivery person is not available" });
+    if (delivery.status !== "available") {
+      return res
+        .status(400)
+        .send({ message: "Delivery person is not available" });
     }
 
     order.delivery = deliveryId;
-    order.status = "assigned";
+    order.status = "pending";
     await order.save();
-    res.status(200).send({message: "Order assigned to delivery person successfully", order: await order.populate("delivery", "name phone")});
+    res.status(200).send({
+      message: "Order assigned to delivery person successfully",
+      order: await order.populate("delivery", "name phone"),
+    });
   } catch (error) {
     console.error("Assigned order error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+async function getAvailableDeliveryRiders(req, res) {
+  try {
+    const deliveries = await Delivery.find({ status: "available" }).select(
+      "name phone rating reviews deliveryArea currentLocation"
+    );
+
+    res.status(200).send({
+      message: "Available delivery riders fetched successfully",
+      deliveries,
+      count: deliveries.length,
+    });
+  } catch (error) {
+    console.error("Get available delivery riders error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -742,4 +777,5 @@ module.exports = {
   getVendorOrders,
   getVendorMenu,
   assignOrder,
+  getAvailableDeliveryRiders,
 };

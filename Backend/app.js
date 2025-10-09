@@ -1,7 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const path = require("path");
 const connectDB = require("./config/db")
 const buyerroute = require("./router/buyer.router");
 const adminroute = require("./router/admin.router");
@@ -17,9 +16,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api", buyerroute);
 app.use("/api", adminroute);
 app.use("/api", vendorroute);
