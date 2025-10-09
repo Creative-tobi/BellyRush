@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Api, { BACKEND_BASE_URL } from "../../component/Api";
+import Api from "../../component/Api";
 
 const VendorDashboard = () => {
   const [vendor, setVendor] = useState(null);

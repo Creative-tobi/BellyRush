@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Api, { BACKEND_BASE_URL } from "../../component/Api";
+import Api from "../../component/Api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AdminDashboard = () => {
