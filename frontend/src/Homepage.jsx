@@ -413,19 +413,19 @@ const Homepage = () => {
             viewport={{ once: false, margin: "-100px" }}>
             {[
               {
-                img: "/src/media/hotfood.jpg",
+                img: "/hotfood.jpg",
                 name: "Jane Doe",
                 quote:
                   "BellyRush has transformed the way I order food. The variety of restaurants and the speed of delivery are unmatched!",
               },
               {
-                img: "/src/media/hotfood.jpg",
+                img: "/hotfood.jpg",
                 name: "John Smith",
                 quote:
                   "I love how easy it is to use BellyRush. The app is user-friendly, and I can track my order in real-time. Highly recommend!",
               },
               {
-                img: "/src/media/hotfood.jpg",
+                img: "/hotfood.jpg",
                 name: "Emily Johnson",
                 quote:
                   "The customer service at BellyRush is exceptional. They resolved my issue quickly and made sure I was satisfied. Five stars!",
