@@ -11,7 +11,7 @@ const DeliveryDashboard = () => {
   const [location, setLocation] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // ✅ Profile Modal States (mirroring CustomerDashboard)
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
     name: "",
@@ -40,6 +40,7 @@ const DeliveryDashboard = () => {
       setLoading(true);
       const profileRes = await Api.get("/deliveryprofile");
       setDelivery(profileRes.data.delivery);
+      setStatus(profileRes.data.delivery.status || "offline");
       setProfileData({
         name: profileRes.data.delivery.name || "",
         email: profileRes.data.delivery.email || "",
@@ -87,7 +88,7 @@ const DeliveryDashboard = () => {
     }
 
     try {
-      await Api.put("/delivery/location", {
+      await Api.put("/updatelocation", {
         currentLocation: location.trim(),
       });
 
@@ -198,7 +199,7 @@ const DeliveryDashboard = () => {
       busy: "bg-yellow-100 text-yellow-800",
       offline: "bg-gray-100 text-gray-800",
       assigned: "bg-blue-100 text-blue-800",
-      "picked-up": "bg-purple-100 text-purple-800",
+      pending: "bg-purple-100 text-purple-800",
       delivered: "bg-green-100 text-green-800",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800";
@@ -516,14 +517,14 @@ const DeliveryDashboard = () => {
                         className={`px-2 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusColor(
                           order.status
                         )}`}>
-                        {order.status === "picked-up"
+                        {order.status === "pending"
                           ? "Picked Up"
                           : order.status}
                       </span>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    {["assigned", "picked-up"].includes(order.status) && (
+                    {["assigned", "pending"].includes(order.status) && (
                       <button
                         onClick={() => handleDeliverOrder(order._id)}
                         className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">

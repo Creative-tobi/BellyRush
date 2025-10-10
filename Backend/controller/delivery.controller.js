@@ -585,7 +585,7 @@ async function GetAssignOrder(req, res) {
 
     const orders = await Order.find({
       delivery: deliveryId,
-      status: { $in: ["assigned", "pickedup"] },
+      status: { $in: ["pending", "pickedup"] },
     })
       .populate("buyer", "name phone address")
       .populate("vendor", "restaurantName")
