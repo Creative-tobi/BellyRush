@@ -26,7 +26,7 @@ router.put("/resenddeliveryotp", resendOTP);
 
 router.put("/updatelocation", authmiddleware, updateLocation);
 router.get("/findnearbydeliveries", findNearbyDeliveries);
-router.put("/deliverorder", authmiddleware, deliverOrder);
+router.put("/deliverorder/:id", authmiddleware, deliverOrder);
 router.get("/getassignorder", authmiddleware, GetAssignOrder);
 
 module.exports = router;

@@ -111,7 +111,7 @@ const DeliveryDashboard = () => {
 
   const handleDeliverOrder = async (orderId) => {
     try {
-      await Api.put("/deliveryorder", { orderId });
+      await Api.put(`/deliveryorder/${orderId}`);
       alert("Order marked as delivered!");
       fetchAssignedOrders();
     } catch (error) {
@@ -131,7 +131,6 @@ const DeliveryDashboard = () => {
     navigate("/delivery/login");
   };
 
-  // ✅ Profile Modal Handlers (mirroring customer)
   const openProfileModal = () => {
     setIsProfileModalOpen(true);
     setShowProfileMenu(false);
