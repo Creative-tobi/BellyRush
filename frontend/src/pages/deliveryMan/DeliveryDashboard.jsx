@@ -111,7 +111,7 @@ const DeliveryDashboard = () => {
 
   const handleDeliverOrder = async (orderId) => {
     try {
-      await Api.post("/deliveryorder", { orderId });
+      await Api.put("/deliveryorder", { orderId });
       alert("Order marked as delivered!");
       fetchAssignedOrders();
     } catch (error) {
