@@ -24,6 +24,8 @@ const VendorDashboard = () => {
   const [selectedDeliveryId, setSelectedDeliveryId] = useState("");
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
   const [profileData, setProfileData] = useState({
     restaurantName: "",
     email: "",
@@ -82,6 +84,16 @@ const VendorDashboard = () => {
     }
   };
 
+  const handleUpdateMenu = async (itemId, updatedData) => {
+    try {
+      await Api.put(`/updatemenu/${itemId}`, updatedData);
+      fetchDashboardData();
+      alert("Menu item updated successfully!");
+    } catch (error) {
+      error("Error updating menu item:", error);
+    }
+  };
+
   const handleOrderStatusUpdate = async (orderId, newStatus) => {
     try {
       await Api.put(`/updatestatus/${orderId}`, { status: newStatus });
@@ -97,7 +109,7 @@ const VendorDashboard = () => {
     }
   };
 
-  // ✅ FIXED: Direct assignment from rider card — bypasses global state race condition
+  //Direct assignment from rider card
   const handleAssignFromRiderCard = async (deliveryId, orderId) => {
     if (!deliveryId || !orderId) return;
     try {
@@ -120,7 +132,6 @@ const VendorDashboard = () => {
     }
   };
 
-  // Keep this for Orders tab (uses dropdown + global state)
   const handleAssignOrder = async (orderId) => {
     if (!selectedDeliveryId) {
       alert("Please select a delivery rider");
@@ -162,7 +173,7 @@ const VendorDashboard = () => {
       ready: "bg-purple-100 text-purple-800",
       assigned: "bg-green-100 text-green-800",
       completed: "bg-green-100 text-green-600",
-      delivered: "bg-green-100 text-green-600", // ✅ Add delivered
+      delivered: "bg-green-100 text-green-600", 
       cancelled: "bg-red-100 text-red-800",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800";
@@ -185,6 +196,8 @@ const VendorDashboard = () => {
   // Menu Modal Handlers
   const openModal = () => {
     setIsModalOpen(true);
+    setIsEditing(false);
+    setEditingItemId(null);
     setFormData({
       foodname: "",
       description: "",
@@ -198,6 +211,8 @@ const VendorDashboard = () => {
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setIsEditing(false);
+    setEditingItemId(null);
     setPreview(null);
   };
 
@@ -238,19 +253,28 @@ const VendorDashboard = () => {
       formDataToSend.append("category", formData.category);
       formDataToSend.append("price", parseFloat(formData.price) * 100);
       formDataToSend.append("ingredients", formData.ingredients);
-      formDataToSend.append("vendor", vendor?._id);
+      if (!isEditing) {
+        formDataToSend.append("vendor", vendor?._id);
+      }
       if (formData.profileImage) {
         formDataToSend.append("profileImage", formData.profileImage);
       }
-      await Api.post("/createmenu", formDataToSend, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      alert("Menu item created successfully!");
+      if (isEditing) {
+        await Api.put(`/updatemenu/${editingItemId}`, formDataToSend, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        alert("Menu item updated successfully!");
+      } else {
+        await Api.post("/createmenu", formDataToSend, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        alert("Menu item created successfully!");
+      }
       closeModal();
       fetchDashboardData();
     } catch (error) {
-      console.error("Error creating menu item:", error);
-      alert("Failed to create menu item. Please try again.");
+      console.error("Error saving menu item:", error);
+      alert("Failed to save menu item. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -647,13 +671,14 @@ const VendorDashboard = () => {
                               <div className="flex flex-wrap gap-1">
                                 {order.status === "pending" && (
                                   <>
-                                    <button
+                                    {/* <button
                                       onClick={() =>
                                         handleAssignOrder(order._id)
+                                        
                                       }
                                       className="text-green-600 hover:text-green-900 text-xs">
                                       Assign to Rider
-                                    </button>
+                                    </button> */}
                                     <button
                                       onClick={() =>
                                         handleOrderStatusUpdate(
@@ -666,7 +691,7 @@ const VendorDashboard = () => {
                                     </button>
                                   </>
                                 )}
-                                {order.status === "assigned" && (
+                                {order.status === "paid" && (
                                   <button
                                     onClick={() =>
                                       handleOrderStatusUpdate(
@@ -766,14 +791,14 @@ const VendorDashboard = () => {
                         onChange={(e) => {
                           const orderId = e.target.value;
                           if (orderId) {
-                            // ✅ FIXED: Pass both IDs directly
+                            //Pass both IDs directly
                             handleAssignFromRiderCard(delivery._id, orderId);
                           }
                         }}>
-                        <option value="">Select a pending order</option>
-                        {/* ✅ FIXED: Filter by "pending" */}
+                        <option value="">Select a paid order</option>
+                        {/*Filter by "pending" */}
                         {orders
-                          .filter((order) => order.status === "pending")
+                          .filter((order) => order.status === "paid")
                           .map((order) => (
                             <option key={order._id} value={order._id}>
                               Order #{order._id.substring(0, 6)} - $
@@ -838,6 +863,8 @@ const VendorDashboard = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => {
+                            setIsEditing(true);
+                            setEditingItemId(item._id);
                             setFormData({
                               foodname: item.foodname,
                               description: item.description,
@@ -986,7 +1013,7 @@ const VendorDashboard = () => {
             onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">
-                {formData.foodname ? "Edit Menu Item" : "Add New Menu Item"}
+                {isEditing ? "Edit Menu Item" : "Add New Menu Item"}
               </h2>
               <button
                 onClick={closeModal}

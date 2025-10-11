@@ -15,6 +15,7 @@ import CustomerRegister from './pages/customer/CustomerRegister';
 import CustomerLogin from './pages/customer/CustomerLogin';
 import CustomerOTP from './pages/customer/CustomerOTP';
 import CustomerDashboard from './pages/customer/CustomerDashboard';
+import PaymentSuccess from './pages/customer/PaymentSuccess';
 import AdminRegister from './pages/admin/AdminRegister';
 import AdminOTP from './pages/admin/AdminOTP';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -48,6 +49,7 @@ function App() {
           <Route path="/customer/login" element={<CustomerLogin />} />
           <Route path="/customer/otp" element={<CustomerOTP />} />
           <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+          <Route path="/success" element={<PaymentSuccess />} />
 
           {/* Admin account create */}
           <Route path="/admin/register" element={<AdminRegister />} />

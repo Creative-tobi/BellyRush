@@ -9,6 +9,7 @@ const DeliveryLogin = () => {
     password: "",
   });
 
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -27,25 +28,23 @@ const DeliveryLogin = () => {
       return;
     }
 
+    setLoading(true);
+
     try {
       const res = await Api.post("/deliverylogin", data);
       console.log("Delivery login", res.data);
 
-      // Fixed: accessing 'delivery' property (not 'Delivery') - lowercase matches your backend
       if (res.data.token) localStorage.setItem("token", res.data.token);
       if (res.data.delivery?._id)
         localStorage.setItem("deliveryId", res.data.delivery._id);
       if (res.data.delivery?.email)
         localStorage.setItem("deliveryEmail", res.data.delivery.email);
-
-      // Note: OTP is not returned in login response, only during registration
-      // Remove any existing OTP from localStorage since it's not relevant for login
       localStorage.removeItem("deliveryOTP");
 
       alert("Login successful!");
       navigate("/delivery/dashboard");
     } catch (error) {
-      // Improved error handling - check both 'message' and 'error' properties
+      
       let errorMessage = "An error occurred during login";
 
       if (error.response) {
@@ -65,6 +64,8 @@ const DeliveryLogin = () => {
 
       alert(errorMessage);
       console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

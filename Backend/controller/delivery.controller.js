@@ -85,7 +85,7 @@ async function createDelivery(req, res) {
       payout = 0,
     } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!name || !email || !password || !phone || !currentLocation) {
       return res.status(400).send({
         error:
@@ -215,7 +215,7 @@ async function resendOTP(req, res) {
   try {
     const { email } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email) {
       return res.status(400).send({ message: "Email is required" });
     }
@@ -265,7 +265,7 @@ async function verifyOTP(req, res) {
   const { email, OTP } = req.body;
 
   try {
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email || !OTP) {
       return res.status(400).send({ message: "Email and OTP are required" });
     }
@@ -326,7 +326,7 @@ async function deliveryLogin(req, res) {
   try {
     const { email, password } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email || !password) {
       return res
         .status(400)
@@ -406,7 +406,7 @@ async function updateStatus(req, res) {
   try {
     const { status, email } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email || !status) {
       return res.status(400).send({ message: "Email and status are required" });
     }
@@ -506,7 +506,7 @@ async function updateLocation(req, res) {
   }
 }
 
-// Find nearby deliveries (New endpoint for admin/orders)
+// Find nearby deliveries 
 async function findNearbyDeliveries(req, res) {
   try {
     const { latitude, longitude, maxDistance = 5000 } = req.query;
@@ -546,7 +546,7 @@ async function findNearbyDeliveries(req, res) {
 
 async function deliverOrder(req, res) {
   try {
-    const { orderId } = req.body;
+    const orderId = req.params.id?.trim();
     const deliveryId = req.user.id;
 
     const order = await Order.findById(orderId);
@@ -560,11 +560,11 @@ async function deliverOrder(req, res) {
         .send({ message: "Not authorized to deliver this order" });
     }
 
-    if (order.status !== "delivered") {
+    if (order.status !== "paid") {
       return res.status(400).send({ message: "Order is not out for delivery" });
     }
 
-    order.status = "delivered";
+    order.status = "paid";
     await order.save();
     const delivery = await Delivery.findById(deliveryId);
     if (delivery) {
@@ -572,9 +572,9 @@ async function deliverOrder(req, res) {
       await delivery.save();
     }
 
-    res.status(200).send({ message: "Order marked as delivered", order });
+    res.status(200).send({ message: "Order delivered", order });
   } catch (error) {
-    console.error("findNearbyDeliveries error:", error);
+    console.error("deliverOrder error:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 }
@@ -585,7 +585,7 @@ async function GetAssignOrder(req, res) {
 
     const orders = await Order.find({
       delivery: deliveryId,
-      status: { $in: ["pending", "pickedup"] },
+      status: { $in: ["pending", "pickedup", "paid"] },
     })
       .populate("buyer", "name phone address")
       .populate("vendor", "restaurantName")
@@ -600,6 +600,125 @@ async function GetAssignOrder(req, res) {
   }
 }
 
+//updating order status
+async function updateOrderStatus(req, res) {
+  try {
+    const { id } = req.params; // Fixed: was req.params.id instead of req.params
+    const { status } = req.body;
+
+    // Enhanced Validation
+    if (!id) {
+      return res.status(400).send({ message: "Order ID is required" });
+    }
+
+    if (!status) {
+      return res.status(400).send({ message: "Status is required" });
+    }
+
+    const validStatuses = [
+      "pending",
+      "paid",
+      "inprogress",
+      "completed",
+      "cancelled",
+      "delivered",
+    ];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).send({
+        message: `Invalid status. Valid statuses are: ${validStatuses.join(
+          ", "
+        )}`,
+      });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).send({ message: "Order not found" });
+    }
+
+    if (order.delivery.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ message: "Unauthorized to update this order" });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).send({
+      message: "Order status updated successfully",
+      order: {
+        id: order._id,
+        status: order.status,
+        buyer: order.buyer,
+        items: order.items,
+        totalamount: order.totalamount,
+      },
+    });
+  } catch (error) {
+    console.error("Update order status error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+//updating details details
+async function updateDeliveryProfile(req, res) {
+  try {
+    const deliveryId = req.user?.id;
+    if (!deliveryId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not authenticated" });
+    }
+
+    const body = req.body || {};
+
+    let profileImage = null;
+    if (req.file) {
+      profileImage = req.file.path; 
+    }
+
+    const {
+      name,
+      email,
+      phone,
+    } = body;
+
+    const delivery = await Delivery.findById(deliveryId);
+    if (!delivery) {
+      return res.status(404).json({ message: "Delivery rider not found" });
+    }
+
+  
+    if (delivery._id.toString() !== deliveryId.toString()) {
+      return res
+        .status(403)
+        .json({
+          message: "Forbidden: You can only update your own rider profile",
+        });
+    }
+
+     if (profileImage !== undefined && profileImage !== null) {
+      delivery.profileImage = profileImage;
+    }
+
+   if (name !== undefined) delivery.name = name;
+   if (email !== undefined) delivery.email = email;
+   if (phone !== undefined) delivery.phone = phone;
+
+   const updatedDelivery = await delivery.save();
+
+    return res.status(200).json({
+      message: "Rider details updated successfully",
+      delivery: updatedDelivery,
+    });
+  } catch (error) {
+    console.error("Update vendor error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+
 module.exports = {
   createDelivery,
   resendOTP,
@@ -611,4 +730,6 @@ module.exports = {
   findNearbyDeliveries,
   deliverOrder,
   GetAssignOrder,
+  updateOrderStatus,
+  updateDeliveryProfile,
 };

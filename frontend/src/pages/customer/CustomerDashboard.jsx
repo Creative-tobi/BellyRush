@@ -1,15 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Api from "../../component/Api";
-import { loadStripe } from "@stripe/stripe-js";
 import { FaStar } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import cicken from "/src/media/cicken.jpg";
 import delivery from "/src/media/delivey.jpg";
 import vendor from "/src/media/vendor.jpg";
 import user from "/src/media/buyer.jpg";
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const CustomerDashboard = () => {
   const [customer, setCustomer] = useState(null);
@@ -21,13 +18,13 @@ const CustomerDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [paymentStep, setPaymentStep] = useState(false);
-  const [clientSecret, setClientSecret] = useState(null);
   const [addressInput, setAddressInput] = useState("");
   const [isAddressDirty, setIsAddressDirty] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  // ✅ Profile Modal States
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  // Profile Modal States
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
     name: "",
@@ -62,8 +59,10 @@ const CustomerDashboard = () => {
 
       const vendorsRes = await Api.get("/restaurants");
       setVendors(vendorsRes.data.vendors || []);
+
       const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders || []);
+
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -124,19 +123,23 @@ const CustomerDashboard = () => {
         alert("Please login first");
         return;
       }
+
       const currentCart = getCurrentCart();
       const isItemInCart = currentCart?.items?.some(
         (item) => item.menuId === menuId
       );
+
       const deliveryaddress =
         customer.address || "Please update your delivery address in profile";
       const contact =
         customer.phone || "Please update your phone number in profile";
+
       const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
       if (!phoneRegex.test(contact.replace(/[^+\d]/g, ""))) {
         alert("Please update your phone number in profile with a valid format");
         return;
       }
+
       const payload = {
         menuId,
         buyerId: customer._id,
@@ -144,9 +147,11 @@ const CustomerDashboard = () => {
         contact,
         quantity,
       };
-      const response = await Api.post("/createorder", payload);
+
+      await Api.post("/createorder", payload);
       const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders || []);
+
       if (isItemInCart) {
         alert("Item already in cart! Quantity increased.");
       } else {
@@ -159,83 +164,50 @@ const CustomerDashboard = () => {
         localStorage.clear();
         navigate("/customer/login");
       } else if (error.response?.status === 400) {
-        const errorMessage =
-          error.response.data.message || "Invalid request data";
-        alert("Validation Error: " + errorMessage);
+        alert(
+          "Validation Error: " + (error.response.data.message || "Invalid data")
+        );
       } else if (error.response?.status === 404) {
-        alert("Menu item or buyer not found. Please try again.");
+        alert("Menu item or buyer not found.");
       } else {
         alert("Failed to add item to cart. Please try again later.");
       }
     }
   };
 
+  //Handle Stripe Checkout Redirect
   const handleCheckout = async (orderId) => {
     try {
-      const paymentRes = await Api.post(`/create-payment-intent/${orderId}`);
-      setClientSecret(paymentRes.data.client_secret);
-      setPaymentStep(true);
+      const currentCart = orders.find((order) => order._id === orderId);
+      if (!currentCart?.deliveryaddress?.trim()) {
+        alert("Please update your delivery address in the cart.");
+        return;
+      }
+
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(currentCart.contact.replace(/[^+\d]/g, ""))) {
+        alert("Please update your phone number with a valid format.");
+        return;
+      }
+
+      // Call backend to create Stripe Checkout Session
+      const response = await Api.post(`/create-checkout-session/${orderId}`);
+      if (response.data?.url) {
+        window.location.href = response.data.url; 
+      } else {
+        throw new Error("No checkout URL returned");
+      }
     } catch (error) {
       console.error("Checkout error:", error);
       alert(
-        error.response?.data?.message ||
-          "Failed to initiate payment. Please try again."
+        error.response?.data?.error ||
+          "Failed to start checkout. Please try again."
       );
-    }
-  };
-
-  const handlePayment = async () => {
-    try {
-      // DEV MODE: Skip real payment, simulate success
-      if (import.meta.env.DEV) {
-        await Api.post("/ordercheckout", {
-          orderId: selectedOrder._id,
-          paymentIntentId: "test_payment_intent_dev", // mock ID
-        });
-        const ordersRes = await Api.get("/getorders");
-        setOrders(ordersRes.data.orders || []);
-        alert("Order placed successfully (DEV MODE)!");
-        closeOrderModal();
-        setPaymentStep(false);
-        return;
-      }
-      // PROD: Use real Stripe (you'll need Elements)
-      const stripe = await stripePromise;
-      if (!stripe || !clientSecret) return;
-      const { error, paymentIntent } = await stripe.confirmCardPayment(
-        clientSecret,
-        {
-          payment_method: {
-            card: {
-              number: "4242424242424242",
-              exp_month: 12,
-              exp_year: 2025,
-              cvc: "123",
-            },
-            billing_details: { name: customer?.name || "Test User" },
-          },
-        }
-      );
-      if (error) throw error;
-      if (paymentIntent?.status === "succeeded") {
-        await Api.post("/ordercheckout", {
-          orderId: selectedOrder._id,
-          paymentIntentId: paymentIntent.id,
-        });
-        const ordersRes = await Api.get("/getorders");
-        setOrders(ordersRes.data.orders || []);
-        alert("Order placed successfully!");
-        closeOrderModal();
-        setPaymentStep(false);
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      alert("Payment failed: " + (error.message || "Unknown error"));
     }
   };
 
   const handleUpdateQuantity = async (orderId, menuId, newQuantity) => {
-    if (newQuantity < 0) return;
+    if (newQuantity <= 0) return;
     try {
       const payload = { orderId, menuId, quantity: newQuantity };
       await Api.put("/updateitemquantity", payload);
@@ -264,8 +236,16 @@ const CustomerDashboard = () => {
   const closeOrderModal = () => {
     setIsOrderModalOpen(false);
     setSelectedOrder(null);
-    setPaymentStep(false);
-    setClientSecret(null);
+  };
+
+  //Open Order History Modal
+  const openHistoryModal = () => {
+    setIsHistoryModalOpen(true);
+    setShowProfileMenu(false);
+  };
+
+  const closeHistoryModal = () => {
+    setIsHistoryModalOpen(false);
   };
 
   const handleLogout = () => {
@@ -273,7 +253,7 @@ const CustomerDashboard = () => {
     navigate("/customer/login");
   };
 
-  // ✅ Profile Modal Handlers
+  //Profile Modal Handlers
   const openProfileModal = () => {
     setIsProfileModalOpen(true);
     setShowProfileMenu(false);
@@ -324,7 +304,6 @@ const CustomerDashboard = () => {
         phone: res.data.buyer.phone,
         address: res.data.buyer.address,
       });
-
       alert("Profile updated successfully!");
       closeProfileModal();
     } catch (error) {
@@ -370,7 +349,7 @@ const CustomerDashboard = () => {
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
             </div>
-            <div className="hidden sm:flex-1 sm:max-w-lg sm:mx-4 md:mx-8">
+            <div className=" sm:flex-1 sm:max-w-lg sm:mx-4 md:mx-8">
               <div className="relative">
                 <input
                   type="text"
@@ -453,16 +432,14 @@ const CustomerDashboard = () => {
                       </p>
                       <p className="text-sm text-gray-500">{customer?.email}</p>
                     </div>
+                    {/*Order History */}
                     <button
-                      onClick={() => {
-                        if (orders.length > 0) openOrderModal(orders[0]);
-                        else alert("No orders found!");
-                      }}
+                      onClick={openHistoryModal}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      My Orders
+                      Order History
                     </button>
                     <button
-                      onClick={openProfileModal} // ✅ Open modal instead of navigating
+                      onClick={openProfileModal}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       Profile Settings
                     </button>
@@ -799,9 +776,7 @@ const CustomerDashboard = () => {
               onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">
-                  {paymentStep
-                    ? "Payment"
-                    : selectedOrder.status === "pending"
+                  {selectedOrder.status === "pending"
                     ? "Your Cart"
                     : "Order Details"}
                 </h2>
@@ -823,219 +798,135 @@ const CustomerDashboard = () => {
                 </button>
               </div>
               <div className="p-4 sm:p-6">
-                {paymentStep ? (
-                  <div className="space-y-4">
-                    <div className="text-center mb-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        Complete Your Payment
-                      </h3>
-                      <p className="text-gray-600">
-                        Total: $
-                        {(
-                          ((selectedOrder.totalamount || 0) + 299) /
-                          100
-                        ).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Test Payment:</strong> This is using test card
-                        details.
-                      </p>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Card Number
-                        </label>
-                        <input
-                          type="text"
-                          value="4242 4242 4242 4242"
-                          readOnly
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Expiry
-                          </label>
-                          <input
-                            type="text"
-                            value="12/25"
-                            readOnly
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            CVC
-                          </label>
-                          <input
-                            type="text"
-                            value="123"
-                            readOnly
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-4 mb-6">
-                      <h3 className="font-medium text-gray-900 mb-3">Items</h3>
-                      {selectedOrder.items?.map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center pb-3 border-b border-gray-100">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">
-                              {item.name}
+                <div className="space-y-4 mb-6">
+                  <h3 className="font-medium text-gray-900 mb-3">Items</h3>
+                  {selectedOrder.items?.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center pb-3 border-b border-gray-100">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{item.name}</p>
+                        <div className="flex items-center mt-1">
+                          {selectedOrder.status === "pending" && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleUpdateQuantity(
+                                    selectedOrder._id,
+                                    item.menuId,
+                                    item.quantity - 1
+                                  )
+                                }
+                                className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-medium">
+                                -
+                              </button>
+                              <span className="mx-3 text-sm text-gray-600">
+                                Qty: {item.quantity}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  handleUpdateQuantity(
+                                    selectedOrder._id,
+                                    item.menuId,
+                                    item.quantity + 1
+                                  )
+                                }
+                                className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center text-white font-medium">
+                                +
+                              </button>
+                            </>
+                          )}
+                          {selectedOrder.status !== "pending" && (
+                            <p className="text-sm text-gray-600">
+                              Qty: {item.quantity}
                             </p>
-                            <div className="flex items-center mt-1">
-                              {selectedOrder.status === "pending" && (
-                                <>
-                                  <button
-                                    onClick={() =>
-                                      handleUpdateQuantity(
-                                        selectedOrder._id,
-                                        item.menuId,
-                                        item.quantity - 1
-                                      )
-                                    }
-                                    className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-medium">
-                                    -
-                                  </button>
-                                  <span className="mx-3 text-sm text-gray-600">
-                                    Qty: {item.quantity}
-                                  </span>
-                                  <button
-                                    onClick={() =>
-                                      handleUpdateQuantity(
-                                        selectedOrder._id,
-                                        item.menuId,
-                                        item.quantity + 1
-                                      )
-                                    }
-                                    className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center text-white font-medium">
-                                    +
-                                  </button>
-                                </>
-                              )}
-                              {selectedOrder.status !== "pending" && (
-                                <p className="text-sm text-gray-600">
-                                  Qty: {item.quantity}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <span className="font-medium text-gray-900">
-                            ${((item.price * item.quantity) / 100).toFixed(2)}
-                          </span>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="font-medium text-gray-900">
-                          ${((selectedOrder.totalamount || 0) / 100).toFixed(2)}
-                        </span>
                       </div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Delivery Fee:</span>
-                        <span className="font-medium text-gray-900">$2.99</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold mt-4">
-                        <span>Total:</span>
-                        <span>
-                          $
-                          {(
-                            ((selectedOrder.totalamount || 0) + 299) /
-                            100
-                          ).toFixed(2)}
-                        </span>
-                      </div>
+                      <span className="font-medium text-gray-900">
+                        ${((item.price * item.quantity) / 100).toFixed(2)}
+                      </span>
                     </div>
-                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Restaurant
-                      </h4>
-                      <p className="text-gray-600">
-                        {selectedOrder.vendor?.restaurantName || "N/A"}
-                      </p>
-                    </div>
-                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Delivery Address
-                      </h4>
-                      <input
-                        type="text"
-                        value={addressInput}
-                        onChange={(e) => {
-                          setAddressInput(e.target.value);
-                          setIsAddressDirty(
-                            e.target.value !==
-                              (selectedOrder.deliveryaddress ||
-                                customer?.address ||
-                                "")
-                          );
-                        }}
-                        className="border border-gray-300 p-2 rounded-md w-full min-h-[44px]"
-                      />
-                      <button
-                        onClick={() => handleAddress(addressInput)}
-                        disabled={!isAddressDirty || isSavingAddress}
-                        className={`mt-2 px-4 py-2 rounded-lg font-medium min-h-[44px] w-full ${
-                          !isAddressDirty || isSavingAddress
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-green-500 text-white hover:bg-green-600"
-                        }`}>
-                        {isSavingAddress ? "Saving..." : "Save Address"}
-                      </button>
-                      <p className="text-gray-600 mt-1">
-                        Contact: {selectedOrder.contact || "Phone not provided"}
-                      </p>
-                    </div>
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Status</h4>
-                      <p className="text-blue-700 font-medium capitalize">
-                        {selectedOrder.status}
-                      </p>
-                    </div>
-                  </>
-                )}
+                  ))}
+                </div>
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium text-gray-900">
+                      ${((selectedOrder.totalamount || 0) / 100).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-600">Delivery Fee:</span>
+                    <span className="font-medium text-gray-900">$2.99</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold mt-4">
+                    <span>Total:</span>
+                    <span>
+                      $
+                      {(((selectedOrder.totalamount || 0) + 299) / 100).toFixed(
+                        2
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Restaurant</h4>
+                  <p className="text-gray-600">
+                    {selectedOrder.vendor?.restaurantName || "N/A"}
+                  </p>
+                </div>
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    Delivery Address
+                  </h4>
+                  <input
+                    type="text"
+                    value={addressInput}
+                    onChange={(e) => {
+                      setAddressInput(e.target.value);
+                      setIsAddressDirty(
+                        e.target.value !==
+                          (selectedOrder.deliveryaddress ||
+                            customer?.address ||
+                            "")
+                      );
+                    }}
+                    className="border border-gray-300 p-2 rounded-md w-full min-h-[44px]"
+                  />
+                  <button
+                    onClick={() => handleAddress(addressInput)}
+                    disabled={!isAddressDirty || isSavingAddress}
+                    className={`mt-2 px-4 py-2 rounded-lg font-medium min-h-[44px] w-full ${
+                      !isAddressDirty || isSavingAddress
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-green-500 text-white hover:bg-green-600"
+                    }`}>
+                    {isSavingAddress ? "Saving..." : "Save Address"}
+                  </button>
+                  <p className="text-gray-600 mt-1">
+                    Contact: {selectedOrder.contact || "Phone not provided"}
+                  </p>
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Status</h4>
+                  <p className="text-blue-700 font-medium capitalize">
+                    {selectedOrder.status}
+                  </p>
+                </div>
               </div>
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
-                {paymentStep ? (
-                  <>
-                    <button
-                      onClick={() => setPaymentStep(false)}
-                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium min-h-[44px]">
-                      Back
-                    </button>
-                    <button
-                      onClick={handlePayment}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium min-h-[44px]">
-                      Pay Now
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={closeOrderModal}
-                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium min-h-[44px]">
-                      Close
-                    </button>
-                    {selectedOrder.status === "pending" && (
-                      <button
-                        onClick={() => handleCheckout(selectedOrder._id)}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium min-h-[44px]">
-                        Checkout
-                      </button>
-                    )}
-                  </>
+                <button
+                  onClick={closeOrderModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium min-h-[44px]">
+                  Close
+                </button>
+                {selectedOrder.status === "pending" && (
+                  <button
+                    onClick={() => handleCheckout(selectedOrder._id)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium min-h-[44px]">
+                    Checkout
+                  </button>
                 )}
               </div>
             </motion.div>
@@ -1043,7 +934,113 @@ const CustomerDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* ✅ Profile Modal */}
+      {/* Order History Modal */}
+      <AnimatePresence>
+        {isHistoryModalOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeHistoryModal}>
+            <motion.div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Order History
+                </h2>
+                <button
+                  onClick={closeHistoryModal}
+                  className="text-gray-400 hover:text-gray-600">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-4 sm:p-6">
+                {orders.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    No orders found.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {orders
+                      .filter((order) => order.status !== "pending") // exclude current cart
+                      .map((order) => (
+                        <div
+                          key={order._id}
+                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                          <div className="flex justify-between">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                Order #{order._id.slice(-6)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <span className="font-bold text-green-600">
+                              ${((order.totalamount || 0) / 100).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {order.items?.slice(0, 2).map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {item.name}
+                              </span>
+                            ))}
+                            {order.items?.length > 2 && (
+                              <span className="text-xs text-gray-500">
+                                +{order.items.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2">
+                            <span
+                              className={`inline-block px-2 py-1 text-xs rounded-full ${
+                                order.status === "delivered"
+                                  ? "bg-green-100 text-green-800"
+                                  : order.status === "cancelled"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-blue-100 text-blue-800"
+                              }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={closeHistoryModal}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Profile Modal */}
       <AnimatePresence>
         {isProfileModalOpen && (
           <motion.div

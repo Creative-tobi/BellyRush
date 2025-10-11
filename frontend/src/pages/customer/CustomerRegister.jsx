@@ -8,9 +8,11 @@ const CustomerRegister = () => {
     name: "",
     email: "",
     password: "",
-    phone: "", // Added required phone field
+    phone: "", 
     profileImage: null,
   });
+
+  const [loading, setLoading] = useState(false);
 
   const [preview, setPreview] = useState(null);
 
@@ -28,14 +30,13 @@ const CustomerRegister = () => {
     const file = e.target.files[0];
     if (file) {
       setData({ ...data, profileImage: file });
-      setPreview(URL.createObjectURL(file)); // preview URL
+      setPreview(URL.createObjectURL(file)); 
     }
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    // Validate required fields (matching your backend requirements)
     const requiredFields = ["name", "email", "password", "phone"];
     const missingFields = requiredFields.filter((field) => !data[field]);
 
@@ -45,36 +46,35 @@ const CustomerRegister = () => {
     }
 
     try {
-      // use FormData because we are sending file
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("email", data.email);
       formData.append("password", data.password);
-      formData.append("phone", data.phone); // Added phone field
+      formData.append("phone", data.phone); 
       if (data.profileImage) {
-        // Only append if file exists
+      
         formData.append("profileImage", data.profileImage);
       }
 
+      setLoading(true);
       const res = await Api.post("/createbuyer", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       console.log("Buyer registration", res.data);
 
-      // ✅ Save authentication token
+      // Save authentication token
       if (res.data.token) localStorage.setItem("token", res.data.token);
 
-      // ✅ Save complete buyer information to localStorage for dashboard
+      // Save complete buyer information to localStorage for dashboard
       if (res.data.buyer) {
         const buyerInfo = {
-          _id: res.data.buyer.id, // This is the buyerId (ObjectId string)
+          _id: res.data.buyer.id, 
           name: res.data.buyer.name,
           email: res.data.buyer.email,
           phone: res.data.buyer.phone,
-          // address will be null initially (user can update in profile later)
           address: null,
-          profileImage: preview, // Save the preview URL for immediate use
+          profileImage: preview, 
         };
 
         localStorage.setItem("customer", JSON.stringify(buyerInfo));
@@ -87,7 +87,6 @@ const CustomerRegister = () => {
       );
       navigate("/customer/otp");
     } catch (error) {
-      // Improved error handling - check both 'message' and 'error' properties
       let errorMessage = "An error occurred during registration";
 
       if (error.response) {
@@ -107,6 +106,8 @@ const CustomerRegister = () => {
 
       alert(errorMessage);
       console.error("Registration error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -211,7 +212,7 @@ const CustomerRegister = () => {
                 value={data.phone}
                 onChange={handleChange}
                 className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-                placeholder="Enter your phone number"
+                placeholder="Enter your phone number with country code(+234)"
                 required
               />
             </div>

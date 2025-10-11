@@ -5,6 +5,7 @@ import Navbar from "../../component/Navbar";
 
 const AdminLogin = () => {
   const [data, setData] = useState({ email: "", password: "" });
+  const [ loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -21,6 +22,7 @@ const AdminLogin = () => {
       alert("Please enter both email and password");
       return;
     }
+    setLoading(true);
 
     try {
       const res = await Api.post("/adminlogin", data);
@@ -56,6 +58,8 @@ const AdminLogin = () => {
 
       alert(errorMessage);
       console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

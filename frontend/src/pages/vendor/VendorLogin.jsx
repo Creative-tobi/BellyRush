@@ -14,6 +14,8 @@ const VendorLogin = () => {
     });
   };
 
+  const [loading, setLoading] = useState(false);
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -23,25 +25,25 @@ const VendorLogin = () => {
       return;
     }
 
+    setLoading(true);
     try {
       const res = await Api.post("/vendorlogin", data);
       console.log("Vendor login", res.data);
 
-      // Fixed: accessing 'vendor' property (not 'Vendor')
+      
       if (res.data.token) localStorage.setItem("token", res.data.token);
       if (res.data.vendor?._id)
         localStorage.setItem("vendorId", res.data.vendor._id);
       if (res.data.vendor?.email)
         localStorage.setItem("vendorEmail", res.data.vendor.email);
 
-      // Note: OTP is only needed for registration, not login
-      // Remove OTP from localStorage on login since it's not relevant
+      
       localStorage.removeItem("vendorOTP");
 
       alert("Login successful!");
-      navigate("/vendor/dashboard"); // Redirect to OTP verification if needed
+      navigate("/vendor/dashboard"); 
     } catch (error) {
-      // Improved error handling
+     
       let errorMessage = "An error occurred during login";
 
       if (error.response) {
@@ -61,6 +63,8 @@ const VendorLogin = () => {
 
       alert(errorMessage);
       console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

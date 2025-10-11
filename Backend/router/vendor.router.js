@@ -29,7 +29,7 @@ router.put("/resendvendorotp", resendOTP);
 router.put("/updatevendor", authmiddleware,upload.single("profileImage"), updateVendor);
 
 router.post("/createmenu", upload.single("profileImage"), createMenu);
-router.put("/updatemenu/:id", updateMenu);
+router.put("/updatemenu/:id", upload.single("profileImage"), authmiddleware,updateMenu);
 router.delete("/deletemenu/:id", authmiddleware, deletemenu);
 router.put("/updatestatus/:id", authmiddleware, updateStatus);
 router.get("/vendororders", authmiddleware, getVendorOrders);

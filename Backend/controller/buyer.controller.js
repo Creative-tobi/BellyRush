@@ -4,10 +4,10 @@ const { Vendor, Order, Menu } = require("../model/vendor.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { cloudinary, storage } = require("../config/cloudinary");
-const stripe = require("../config/stripe");
+const stripe = require("../config/stripe"); 
 const { sendEmail } = require("../service/nodemailer");
 
-// Validation helper functions
+
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -156,7 +156,6 @@ async function createBuyer(req, res) {
         "Email sending failed, but buyer was created:",
         emailError.message
       );
-      // Don't fail the entire registration if email fails
     }
 
     //generate token
@@ -197,7 +196,7 @@ async function resendOTP(req, res) {
   try {
     const { email } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email) {
       return res.status(400).send({ message: "Email is required" });
     }
@@ -245,7 +244,7 @@ async function resendOTP(req, res) {
 async function verifyOTP(req, res) {
   const { email, OTP } = req.body;
   try {
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email || !OTP) {
       return res.status(400).send({ message: "Email and OTP are required" });
     }
@@ -303,7 +302,7 @@ async function buyerLogin(req, res) {
   try {
     const { email, password } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email || !password) {
       return res.status(400).send({ message: "Email and password required" });
     }
@@ -382,9 +381,9 @@ async function buyerProfile(req, res) {
 //getting all vendors
 async function getVendors(req, res) {
   try {
-    const allVendors = await Vendor.find({ isVerified: true }).select(
-      "-password"
-    );
+    const allVendors = await Vendor.find({ isVerified: true })
+    .populate("menu")
+    .select("-password");
     if (!allVendors || allVendors.length === 0) {
       return res.status(404).send({ message: "No vendors found" });
     }
@@ -431,7 +430,7 @@ async function createOrder(req, res) {
     const buyerId = req.user.id;
     const { menuId, quantity, deliveryaddress, contact } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!menuId || !deliveryaddress || !contact) {
       return res.status(400).send({
         message: "menuId, deliveryaddress, contact are required",
@@ -480,7 +479,7 @@ async function createOrder(req, res) {
         items: [],
         deliveryaddress,
         contact,
-        // totalamount: 0,
+        totalamount: 0,
         status: "pending",
         paymentStatus: "unpaid",
       });
@@ -630,18 +629,73 @@ async function updateOrder(req, res) {
   }
 }
 
-// CHECKOUT ORDER
-async function checkoutOrder(req, res) {
+// STRIPE CHECKOUT SESSION 
+async function createCheckoutSession(req, res) {
   try {
-    const { orderId, paymentIntentId } = req.body;
+    const { id: orderId } = req.params;
 
-    // ✅ Enhanced Validation
     if (!orderId) {
-      return res.status(400).send({ message: "orderId is required" });
+      return res.status(400).json({ message: "orderId is required" });
     }
 
-    if (!paymentIntentId) {
-      return res.status(400).send({ message: "paymentIntentId is required" });
+    const order = await Order.findById(orderId).populate("buyer", "email");
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.paymentStatus === "paid") {
+      return res.status(400).json({ message: "Order already paid" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Order #${order._id}`,
+              description: "BellyRush food order",
+            },
+            unit_amount: order.totalamount, 
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${process.env.BACKEND_URL}/api/checkout/confirm?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+      metadata: {
+        orderId: order._id.toString(),
+      },
+      customer_email: order.buyer?.email || undefined,
+    });
+
+    res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error("Create checkout session error:", error);
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+}
+
+//CONFIRM CHECKOUT (no webhook needed for dev)
+async function confirmCheckout(req, res) {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).send({ message: "session_id is required" });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (session.payment_status !== "paid") {
+      return res.status(400).send({ message: "Payment not completed" });
+    }
+
+    const orderId = session.metadata?.orderId;
+    if (!orderId) {
+      return res.status(400).send({ message: "No order ID in session" });
     }
 
     const order = await Order.findById(orderId).populate("buyer", "name email");
@@ -649,24 +703,14 @@ async function checkoutOrder(req, res) {
       return res.status(404).send({ message: "Order not found" });
     }
 
-    if (order.paymentStatus === "succeeded") {
+    if (order.paymentStatus === "paid") {
       return res.status(400).send({ message: "Order already paid" });
     }
 
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-    if (
-      paymentIntent.status !== "succeeded" &&
-      paymentIntent.status !== "requires_capture"
-    ) {
-      return res.status(400).send({ message: "Payment not successful yet" });
-    }
-
-    order.paymentStatus = "succeeded";
-    order.status = "confirmed";
+    order.paymentStatus = "paid";
+    order.status = "paid";
     await order.save();
 
-    // Send order confirmation email
     try {
       await sendOrderConfirmationEmail(
         order.buyer.email,
@@ -674,70 +718,28 @@ async function checkoutOrder(req, res) {
         order
       );
     } catch (emailError) {
-      console.warn(
-        "Failed to send order confirmation email:",
-        emailError.message
-      );
+      console.warn("Email failed:", emailError.message);
     }
 
-    res.status(200).send({
-      message: "Payment confirmed, order marked as confirmed",
-      order,
-    });
+    // Redirect to frontend success page
+    return res.redirect(`${process.env.FRONTEND_URL}/success?orderId=${order._id}`);
   } catch (error) {
-    console.error("Checkout Error:", error);
+    console.error("Confirm checkout error:", error);
     if (error.type === "StripeInvalidRequestError") {
-      return res.status(400).send({ error: "Invalid payment intent" });
+      return res.status(400).send({ error: "Invalid session ID" });
     }
     res.status(500).send({ error: "Internal server error" });
   }
 }
 
-// CREATE PAYMENT INTENT (New endpoint for frontend)
-async function createPaymentIntent(req, res) {
-  try {
-    const { id: orderId } = req.params;
-
-    if (!orderId) {
-      return res.status(400).send({ message: "orderId is required" });
-    }
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).send({ message: "Order not found" });
-    }
-
-    if (order.paymentStatus === "succeeded") {
-      return res.status(400).send({ message: "Order already paid" });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: order.totalamount,
-      currency: "usd",
-      payment_method_types: ["card"],
-      metadata: { orderId: order._id.toString() },
-      description: `Order #${order._id} payment`,
-    });
-
-    res.status(200).send({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-    });
-  } catch (error) {
-    console.error("Create payment intent error:", error);
-    res.status(500).send({ error: "Failed to create payment intent" });
-  }
-}
-
 async function updateAddress(req, res) {
   try {
-    const { address } = req.body; // ✅ Only address needed
+    const { address } = req.body;
 
     if (!address || address.trim() === "") {
       return res.status(400).send({ message: "Address is required" });
     }
 
-    // ✅ Use authenticated user ID (secure & consistent)
     const buyer = await Buyer.findById(req.user.id);
     if (!buyer) {
       return res.status(404).send({ message: "Buyer not found" });
@@ -808,6 +810,8 @@ async function updateBuyer(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+
 module.exports = {
   createBuyer,
   resendOTP,
@@ -819,10 +823,9 @@ module.exports = {
   getOrders,
   updateItemQuantity,
   updateOrder,
-  checkoutOrder,
-  getMenu,
-  createPaymentIntent,
   getMenu,
   updateAddress,
   updateBuyer,
+  createCheckoutSession,
+  confirmCheckout,
 };

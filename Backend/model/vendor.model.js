@@ -20,7 +20,7 @@ const vendorSchema = new mongoose.Schema({
   reviews: { type: Number, default: 0 },
   commission: { type: Number, default: 0 },
   payout: { type: Number, default: 0 },
-  menu: { type: mongoose.Types.ObjectId, ref: "menu" },
+  menu: [{ type: mongoose.Types.ObjectId, ref: "Menu" }],
 
   // Stripe integration 
   stripeAccountId: { type: String },
@@ -78,15 +78,14 @@ const orderSchema = new mongoose.Schema(
     totalamount: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["pending", "paid", "inprogress", "completed", "cancelled"],
+      enum: ["pending", "paid", "inprogress", "completed", "cancelled", "delivered"],
       default: "pending",
     },
 
-    // Stripe
-    paymentIntentId: { type: String },
+    
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "processing", "succeeded", "failed"],
+      enum: ["unpaid", "processing", "succeeded", "failed", "paid"],
       default: "unpaid",
     },
   },

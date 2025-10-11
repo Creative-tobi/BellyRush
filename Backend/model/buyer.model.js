@@ -17,7 +17,6 @@ const buyerSchema = new mongoose.Schema({
   defaultPaymentMethod: { type: String },
   paymentHistory: [
     {
-      paymentIntentId: { type: String },
       amount: { type: Number },
       currency: { type: String, default: "USD" },
       status: { type: String },

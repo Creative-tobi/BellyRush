@@ -212,7 +212,7 @@ async function resendOTP(req, res) {
   try {
     const { email } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!email) {
       return res.status(400).send({ message: "Email is required" });
     }
@@ -260,7 +260,7 @@ async function resendOTP(req, res) {
 async function verifyOTP(req, res) {
   const { email, OTP } = req.body;
   try {
-    // ✅ Enhanced Validation
+    //  Enhanced Validation
     if (!email || !OTP) {
       return res.status(400).send({ message: "Email and OTP are required" });
     }
@@ -318,7 +318,7 @@ async function vendorLogin(req, res) {
   try {
     const { email, password } = req.body;
 
-    // ✅ Enhanced Validation
+    //  Enhanced Validation
     if (!email || !password) {
       return res
         .status(400)
@@ -473,7 +473,7 @@ async function createMenu(req, res) {
     const { foodname, description, category, price, ingredients, vendor } =
       req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (!foodname || !price || !vendor) {
       return res.status(400).send({
         message: "Food name, price, and vendor ID are required",
@@ -539,7 +539,7 @@ async function updateMenu(req, res) {
     const { id } = req.params;
     const { foodname, description, category, price, ingredients } = req.body;
 
-    // ✅ Enhanced Validation
+    // Enhanced Validation
     if (price !== undefined && (isNaN(price) || price <= 0)) {
       return res
         .status(400)
@@ -558,13 +558,18 @@ async function updateMenu(req, res) {
         .send({ message: "Unauthorized to update this menu" });
     }
 
+     let profileImage = null;
+     if (req.file) {
+       profileImage = req.file.path;
+     }
+
     // update fields only if provided
     if (foodname !== undefined) menu.foodname = foodname;
     if (description !== undefined) menu.description = description;
     if (category !== undefined) menu.category = category;
     if (price !== undefined) menu.price = price;
     if (ingredients !== undefined) menu.ingredients = ingredients;
-    if (req.file) menu.profileImage = req.file.path;
+    if (profileImage !== null) menu.profileImage = profileImage;
 
     await menu.save();
 
@@ -735,7 +740,7 @@ async function assignOrder(req, res) {
     }
 
     order.delivery = deliveryId;
-    order.status = "pending";
+    order.status = "paid";
     await order.save();
     res.status(200).send({
       message: "Order assigned to delivery person successfully",

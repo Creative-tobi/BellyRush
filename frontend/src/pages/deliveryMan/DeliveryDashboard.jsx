@@ -8,7 +8,9 @@ const DeliveryDashboard = () => {
   const [assignedOrders, setAssignedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("offline");
+  const [orderStatus, setOrderStatus] = useState("");
   const [location, setLocation] = useState("");
+  const [deliveringOrderId, setDeliveringOrderId] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
 
@@ -109,20 +111,40 @@ const DeliveryDashboard = () => {
     }
   };
 
-  const handleDeliverOrder = async (orderId) => {
-    try {
-      await Api.put(`/deliveryorder/${orderId}`);
-      alert("Order marked as delivered!");
-      fetchAssignedOrders();
-    } catch (error) {
-      console.error("Deliver order error:", error);
-      const message =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        "Failed to deliver order";
-      alert(message);
-    }
-  };
+  const handleOrderStatusUpdate = async (orderId) => {
+  try {
+    await Api.put(`/updateorderstatus/${orderId}`, {
+      status: "delivered",
+      email: delivery.email,
+      orderId: orderId,
+    });
+    setOrderStatus("delivered");
+    fetchAssignedOrders();
+    alert("Order status updated to delivered!");
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    alert("Failed to update order status");
+  }
+};
+
+  // const handleDeliverOrder = async (orderId) => {
+  //   setDeliveringOrderId(orderId);
+  //   try {
+  //     await Api.post(`/deliverorder/${orderId}`);
+  //     alert("Order delivered!");
+  //     setOrderStatus("completed");
+  //     fetchAssignedOrders();
+  //   } catch (error) {
+  //     console.error("Deliver order error:", error);
+  //     const message =
+  //       error.response?.data?.message ||
+  //       error.response?.data?.error ||
+  //       "Failed to deliver order";
+  //     alert(message);
+  //   } finally {
+  //     setDeliveringOrderId(null);
+  //   }
+  // };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -170,7 +192,7 @@ const DeliveryDashboard = () => {
         formData.append("profileImage", profileImageFile);
       }
 
-      const res = await Api.put("/deliveryprofile", formData, {
+      const res = await Api.put("/updatedeliveryprofile", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -516,16 +538,14 @@ const DeliveryDashboard = () => {
                         className={`px-2 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusColor(
                           order.status
                         )}`}>
-                        {order.status === "pending"
-                          ? "Picked Up"
-                          : order.status}
+                        {order.status === "pending" ? "Pending" : order.status}
                       </span>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    {["assigned", "pending"].includes(order.status) && (
+                    {["paid", "pending"].includes(order.status) && (
                       <button
-                        onClick={() => handleDeliverOrder(order._id)}
+                        onClick={() => handleOrderStatusUpdate(order._id)}
                         className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
                         Mark as Delivered
                       </button>
@@ -543,7 +563,7 @@ const DeliveryDashboard = () => {
         </div>
       </main>
 
-      {/* ✅ PROFILE SETTINGS MODAL — IDENTICAL TO CUSTOMER DASHBOARD */}
+      {/* PROFILE SETTINGS MODAL */}
       <AnimatePresence>
         {isProfileModalOpen && (
           <motion.div

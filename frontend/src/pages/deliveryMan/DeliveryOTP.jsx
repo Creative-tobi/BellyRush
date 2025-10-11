@@ -84,14 +84,14 @@ const DeliveryOTP = () => {
 
     setResendLoading(true);
     try {
-      // Fixed: Use correct endpoint for resend OTP
+    
       const res = await Api.put("/resenddeliveryotp", {
         email: deliveryEmail,
       });
       console.log("Resend OTP", res.data);
       alert("OTP resent successfully! Please check your email.");
     } catch (error) {
-      // Improved error handling for resend
+      
       let errorMessage = "Failed to resend OTP";
 
       if (error.response) {

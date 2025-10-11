@@ -5,6 +5,7 @@ import Navbar from "../../component/Navbar";
 
 const CustomerLogin = () => {
   const [data, setData] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -23,20 +24,20 @@ const CustomerLogin = () => {
       return;
     }
 
+    setLoading(true);
     try {
       const res = await Api.post("/buyerlogin", data);
       console.log("Buyer login", res.data);
 
-      // ✅ Save authentication token
+      // Save authentication token
       if (res.data.token) localStorage.setItem("token", res.data.token);
 
-      // ✅ Save complete buyer information to localStorage for dashboard
+      // Save complete buyer information to localStorage for dashboard
       if (res.data.buyer) {
         const buyerInfo = {
-          _id: res.data.buyer.id, // This is the buyerId (ObjectId string)
+          _id: res.data.buyer.id, 
           name: res.data.buyer.name,
           email: res.data.buyer.email,
-          // phone and address will be fetched from /buyerprofile in dashboard
           phone: null,
           address: null,
           profileImage: null,
@@ -47,14 +48,11 @@ const CustomerLogin = () => {
         localStorage.setItem("buyerEmail", res.data.buyer.email);
       }
 
-      // Note: OTP is not returned in login response, only during registration
-      // Remove any existing OTP from localStorage since it's not relevant for login
       localStorage.removeItem("buyerOTP");
 
       alert("Login successful!");
       navigate("/customer/dashboard");
     } catch (error) {
-      // Improved error handling - check both 'message' and 'error' properties
       let errorMessage = "An error occurred during login";
 
       if (error.response) {
@@ -74,6 +72,8 @@ const CustomerLogin = () => {
 
       alert(errorMessage);
       console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

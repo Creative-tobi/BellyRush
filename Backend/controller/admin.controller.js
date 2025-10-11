@@ -87,6 +87,11 @@ async function createAdmin(req, res) {
       return res.status(400).send({ error: "Admin email already exists" });
     }
 
+    const existingAdminPhone = await Admin.findOne({ phone });
+    if (existingAdminPhone) {
+      return res.status(400).send({ error: "Admin phone already exists" });
+    }
+
     //hashing password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);

@@ -14,6 +14,8 @@ const DeliveryRegistry = () => {
     profileImage: null,
   });
 
+  const [loading, setLoading] = useState(false);
+
   const [preview, setPreview] = useState(null);
 
   const navigate = useNavigate();
@@ -32,6 +34,8 @@ const DeliveryRegistry = () => {
       setPreview(URL.createObjectURL(file));
     }
   };
+
+  setLoading(true);
 
   const handleDeliveryRegister = async (e) => {
     e.preventDefault();
@@ -103,6 +107,9 @@ const DeliveryRegistry = () => {
 
       alert(errorMessage);
       console.error("Registration error:", error);
+    }
+    finally {
+      setLoading(false);
     }
   };
 
@@ -202,7 +209,7 @@ const DeliveryRegistry = () => {
                 type="tel"
                 name="phone"
                 value={data.phone}
-                placeholder="Enter your phone number"
+                placeholder="Enter your phone number with country code(+234)"
                 className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
                 onChange={handleChange}
                 required

@@ -5,7 +5,7 @@ import Navbar from "../../component/Navbar";
 
 const VendorRegister = () => {
   const [data, setData] = useState({
-    restaurantName: "", // Changed from "name" to match backend
+    restaurantName: "", 
     email: "",
     password: "",
     profileImage: null,
@@ -16,6 +16,8 @@ const VendorRegister = () => {
     deliveryarea: "",
     Cuisine: "",
   });
+
+  const [loading, setLoading] = useState(false);
 
   const [preview, setPreview] = useState(null);
 
@@ -33,7 +35,7 @@ const VendorRegister = () => {
     const file = e.target.files[0];
     if (file) {
       setData({ ...data, profileImage: file });
-      setPreview(URL.createObjectURL(file)); // preview URL
+      setPreview(URL.createObjectURL(file)); 
     }
   };
 
@@ -41,7 +43,6 @@ const VendorRegister = () => {
     e.preventDefault();
 
     try {
-      // Validate required fields
       const requiredFields = [
         "restaurantName",
         "email",
@@ -58,7 +59,7 @@ const VendorRegister = () => {
         return;
       }
 
-      // use FormData because we are sending file
+      
       const formData = new FormData();
       formData.append("restaurantName", data.restaurantName);
       formData.append("email", data.email);
@@ -66,24 +67,25 @@ const VendorRegister = () => {
       formData.append("phone", data.phone);
       formData.append("address", data.address);
 
-      // Optional fields
+      
       if (data.description) formData.append("description", data.description);
       if (data.hours) formData.append("hours", data.hours);
       if (data.deliveryarea) formData.append("deliveryarea", data.deliveryarea);
       if (data.Cuisine) formData.append("Cuisine", data.Cuisine);
 
-      // Profile image (only if selected)
+      
       if (data.profileImage) {
         formData.append("profileImage", data.profileImage);
       }
 
+      setLoading(true);
       const res = await Api.post("/registervendor", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       console.log("Vendor registration", res.data);
 
-      // Fixed: accessing 'vendor' property (not 'Vendor')
+      
       if (res.data.token) localStorage.setItem("token", res.data.token);
       if (res.data.vendor?._id)
         localStorage.setItem("vendorId", res.data.vendor._id);
@@ -97,7 +99,7 @@ const VendorRegister = () => {
       );
       navigate("/vendor/otp");
     } catch (error) {
-      // Improved error handling
+      
       let errorMessage = "An error occurred during registration";
 
       if (error.response) {
@@ -117,6 +119,8 @@ const VendorRegister = () => {
 
       alert(errorMessage);
       console.error("Registration error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,7 +218,7 @@ const VendorRegister = () => {
                 value={data.phone}
                 onChange={handleChange}
                 className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-                placeholder="Enter your phone number"
+                placeholder="Enter your phone number with country code(234)"
                 required
               />
             </div>

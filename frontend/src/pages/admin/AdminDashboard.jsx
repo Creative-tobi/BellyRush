@@ -20,7 +20,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  // ✅ Profile Modal States (mirroring CustomerDashboard)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
     name: "",
@@ -42,10 +41,10 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // ✅ Fetch admin profile FIRST
+      //Admin profile 
       const adminProfileRes = await Api.get("/adminprofile");
 
-      // ✅ Fetch all other data in parallel
+      // other data
       const [vendorsRes, buyersRes, deliveriesRes, ordersRes, menuRes] =
         await Promise.all([
           Api.get("/allvendor"),
@@ -55,11 +54,11 @@ const AdminDashboard = () => {
           Api.get("/allmenu"),
         ]);
 
-      // ✅ Set admin state from real API response
+      //  Set admin state from real API response
       const adminData = adminProfileRes.data.admin;
       setAdmin(adminData);
 
-      // ✅ Populate profile modal data
+      // Populate profile modal data
       setProfileData({
         name: adminData.name || "",
         email: adminData.email || "",
@@ -81,7 +80,7 @@ const AdminDashboard = () => {
         menuItems: menuRes.data.allMenu?.length || 0,
       });
 
-      // Optional: sync localStorage
+     
       localStorage.setItem("adminName", adminData.name);
       localStorage.setItem("adminEmail", adminData.email);
 
@@ -135,7 +134,7 @@ const AdminDashboard = () => {
     navigate("/admin/login");
   };
 
-  // ✅ Profile Modal Handlers
+  // Profile Modal Handlers
   const openProfileModal = () => {
     setIsProfileModalOpen(true);
     setShowProfileMenu(false);
@@ -995,7 +994,7 @@ const AdminDashboard = () => {
         )}
       </main>
 
-      {/* ✅ PROFILE SETTINGS MODAL — IDENTICAL TO CUSTOMER DASHBOARD */}
+      {/* PROFILE SETTINGS MODAL */}
       <AnimatePresence>
         {isProfileModalOpen && (
           <motion.div

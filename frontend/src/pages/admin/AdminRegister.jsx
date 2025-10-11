@@ -12,6 +12,7 @@ const AdminRegister = () => {
     profileImage: null,
   });
 
+  const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
   const navigate = useNavigate();
 
@@ -41,6 +42,8 @@ const AdminRegister = () => {
       alert(`Please fill in all required fields: ${missingFields.join(", ")}`);
       return;
     }
+
+    setLoading(true);
 
     try {
       const formData = new FormData();
@@ -89,6 +92,8 @@ const AdminRegister = () => {
 
       alert(errorMessage);
       console.error("Registration error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
