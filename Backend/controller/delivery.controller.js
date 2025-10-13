@@ -564,15 +564,19 @@ async function deliverOrder(req, res) {
       return res.status(400).send({ message: "Order is not out for delivery" });
     }
 
-    order.status = "paid";
+    order.status = "delivered";
     await order.save();
+
+    // Credit delivery share to delivery guy's earnings
     const delivery = await Delivery.findById(deliveryId);
     if (delivery) {
+      delivery.earnings += order.deliveryShare / 100; // Convert cents to dollars
+      delivery.orders += 1;
       delivery.status = "available";
       await delivery.save();
     }
 
-    res.status(200).send({ message: "Order delivered", order });
+    res.status(200).send({ message: "Order delivered successfully", order });
   } catch (error) {
     console.error("deliverOrder error:", error);
     res.status(500).send({ error: "Internal server error" });
@@ -718,6 +722,54 @@ async function updateDeliveryProfile(req, res) {
   }
 }
 
+// POST /payrider
+async function payRiderForDelivery(req, res) {
+  try {
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: "orderId is required" });
+    }
+
+    const order = await Order.findById(orderId).populate(
+      "delivery",
+      "earnings"
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (!order.delivery) {
+      return res
+        .status(400)
+        .json({ error: `No rider assigned to order ${orderId}` });
+    }
+
+    if (order.status !== "delivered") {
+      return res
+        .status(400)
+        .json({ error: "Order must be in 'delivered' status" });
+    }
+
+    const deliveryFeeCents = 200; // $2.00 in cents
+
+    await Delivery.findByIdAndUpdate(order.delivery._id, {
+      $inc: { earnings: deliveryFeeCents },
+    });
+
+    console.log(
+      `Rider ${order.delivery._id} credited $${(
+        deliveryFeeCents / 100
+      ).toFixed(2)} for order ${orderId}`
+    );
+
+    res.status(200).json({ message: "Rider paid successfully" });
+  } catch (error) {
+    console.error("Pay rider error:", error.message);
+    res.status(500).json({ error: "Failed to pay rider" });
+  }
+}
 
 module.exports = {
   createDelivery,
@@ -732,4 +784,5 @@ module.exports = {
   GetAssignOrder,
   updateOrderStatus,
   updateDeliveryProfile,
+  payRiderForDelivery,
 };

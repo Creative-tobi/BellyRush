@@ -112,20 +112,40 @@ const DeliveryDashboard = () => {
   };
 
   const handleOrderStatusUpdate = async (orderId) => {
-  try {
-    await Api.put(`/updateorderstatus/${orderId}`, {
-      status: "delivered",
-      email: delivery.email,
-      orderId: orderId,
-    });
-    setOrderStatus("delivered");
-    fetchAssignedOrders();
-    alert("Order status updated to delivered!");
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    alert("Failed to update order status");
-  }
-};
+    try {
+      await Api.put(`/updateorderstatus/${orderId}`, {
+        status: "delivered",
+        email: delivery.email,
+        orderId: orderId,
+      });
+
+      await Api.post("/payrider", {
+        deliveryId: delivery._id,
+        orderId: orderId,
+        amount: 200,
+        currency: "USD",
+      });
+
+      const profileRes = await Api.get("/deliveryprofile");
+      setDelivery(profileRes.data.delivery);
+      setProfileData((prev) => ({
+        ...prev,
+        name: profileRes.data.delivery.name || prev.name,
+        email: profileRes.data.delivery.email || prev.email,
+        phone: profileRes.data.delivery.phone || prev.phone,
+        vehicleType: profileRes.data.delivery.vehicleType || prev.vehicleType,
+        licensePlate:
+          profileRes.data.delivery.licensePlate || prev.licensePlate,
+      }));
+
+      fetchAssignedOrders();
+
+      alert("Order marked as delivered! $2.00 added to your earnings.");
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      alert("Failed to update order status");
+    }
+  };
 
   // const handleDeliverOrder = async (orderId) => {
   //   setDeliveringOrderId(orderId);
@@ -347,7 +367,7 @@ const DeliveryDashboard = () => {
                   Total Earnings
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${delivery?.earnings || 0}
+                  ${((delivery?.earnings || 0) / 100).toFixed(2)}
                 </p>
               </div>
             </div>

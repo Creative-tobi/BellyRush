@@ -14,6 +14,7 @@ const {
   getVendorMenu,
   assignOrder,
   getAvailableDeliveryRiders,
+  deleteOrder,
 } = require("../controller/vendor.controller");
 
 const authmiddleware = require("../middleware/auth.middleware");
@@ -36,4 +37,5 @@ router.get("/vendororders", authmiddleware, getVendorOrders);
 router.get("/vendormenu", authmiddleware, getVendorMenu);
 router.post("/assignorder", authmiddleware, assignOrder);
 router.get("/availabledeliveries", authmiddleware, getAvailableDeliveryRiders);
+router.delete("/deleteorder/:id", authmiddleware, deleteOrder);
 module.exports = router;

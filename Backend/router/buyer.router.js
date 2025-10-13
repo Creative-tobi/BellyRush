@@ -13,9 +13,9 @@ const {
   getMenu,
   updateAddress,
   updateBuyer,
-
   createCheckoutSession,
   confirmCheckout,
+  deleteOrder,
 } = require("../controller/buyer.controller");
 
 const  upload  = require("../config/multer");
@@ -44,5 +44,6 @@ router.put(
 router.put("/updateaddress", authmiddleware, updateAddress);
 router.post("/create-checkout-session/:id", authmiddleware, createCheckoutSession);
 router.get("/checkout/confirm", confirmCheckout);
+router.delete("/deletebuyerorder/:id", authmiddleware, deleteOrder);
 
 module.exports = router;

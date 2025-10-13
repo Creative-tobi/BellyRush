@@ -8,14 +8,12 @@ const CustomerRegister = () => {
     name: "",
     email: "",
     password: "",
-    phone: "", 
+    phone: "",
     profileImage: null,
   });
 
   const [loading, setLoading] = useState(false);
-
   const [preview, setPreview] = useState(null);
-
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -30,7 +28,7 @@ const CustomerRegister = () => {
     const file = e.target.files[0];
     if (file) {
       setData({ ...data, profileImage: file });
-      setPreview(URL.createObjectURL(file)); 
+      setPreview(URL.createObjectURL(file));
     }
   };
 
@@ -50,9 +48,8 @@ const CustomerRegister = () => {
       formData.append("name", data.name);
       formData.append("email", data.email);
       formData.append("password", data.password);
-      formData.append("phone", data.phone); 
+      formData.append("phone", data.phone);
       if (data.profileImage) {
-      
         formData.append("profileImage", data.profileImage);
       }
 
@@ -69,12 +66,12 @@ const CustomerRegister = () => {
       // Save complete buyer information to localStorage for dashboard
       if (res.data.buyer) {
         const buyerInfo = {
-          _id: res.data.buyer.id, 
+          _id: res.data.buyer.id,
           name: res.data.buyer.name,
           email: res.data.buyer.email,
           phone: res.data.buyer.phone,
           address: null,
-          profileImage: preview, 
+          profileImage: preview,
         };
 
         localStorage.setItem("customer", JSON.stringify(buyerInfo));
@@ -126,7 +123,6 @@ const CustomerRegister = () => {
 
             {/* Upload section */}
             <div className="mb-6 text-center">
-              {/* hidden input */}
               <input
                 type="file"
                 id="profileImage"
@@ -136,7 +132,6 @@ const CustomerRegister = () => {
                 className="hidden"
               />
 
-              {/* clickable upload area */}
               <label
                 htmlFor="profileImage"
                 className="w-32 h-32 mx-auto flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded-full cursor-pointer hover:bg-green-50 hover:border-green-400 transition group overflow-hidden">
@@ -234,12 +229,59 @@ const CustomerRegister = () => {
               />
             </div>
 
-            {/* Button */}
+            {/* Register Button with loading state */}
             <button
               type="submit"
-              className="w-full bg-green-400 text-white py-3 rounded-lg hover:bg-green-500 transition duration-300 font-medium">
-              Register
+              disabled={loading}
+              className={`w-full py-3 rounded-lg transition duration-300 font-medium flex items-center justify-center ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed text-white"
+                  : "bg-green-400 text-white hover:bg-green-500"
+              }`}>
+              {loading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Registering...
+                </>
+              ) : (
+                "Register"
+              )}
             </button>
+
+            {/* Login as Rider / Vendor links */}
+            <div className="mt-4 text-center text-sm text-gray-600">
+              <p>
+                Register as{" "}
+                <Link
+                  to="/delivery/register"
+                  className="text-green-600 hover:underline font-medium">
+                  Rider
+                </Link>{" "}
+                or{" "}
+                <Link
+                  to="/vendor/register"
+                  className="text-green-600 hover:underline font-medium">
+                  Vendor
+                </Link>
+                ?
+              </p>
+            </div>
 
             <p className="mt-4 text-center text-gray-600">
               Already have an account?{" "}

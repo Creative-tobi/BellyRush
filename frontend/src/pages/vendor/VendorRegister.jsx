@@ -5,7 +5,7 @@ import Navbar from "../../component/Navbar";
 
 const VendorRegister = () => {
   const [data, setData] = useState({
-    restaurantName: "", 
+    restaurantName: "",
     email: "",
     password: "",
     profileImage: null,
@@ -18,9 +18,7 @@ const VendorRegister = () => {
   });
 
   const [loading, setLoading] = useState(false);
-
   const [preview, setPreview] = useState(null);
-
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -35,7 +33,7 @@ const VendorRegister = () => {
     const file = e.target.files[0];
     if (file) {
       setData({ ...data, profileImage: file });
-      setPreview(URL.createObjectURL(file)); 
+      setPreview(URL.createObjectURL(file));
     }
   };
 
@@ -59,7 +57,6 @@ const VendorRegister = () => {
         return;
       }
 
-      
       const formData = new FormData();
       formData.append("restaurantName", data.restaurantName);
       formData.append("email", data.email);
@@ -67,13 +64,11 @@ const VendorRegister = () => {
       formData.append("phone", data.phone);
       formData.append("address", data.address);
 
-      
       if (data.description) formData.append("description", data.description);
       if (data.hours) formData.append("hours", data.hours);
       if (data.deliveryarea) formData.append("deliveryarea", data.deliveryarea);
       if (data.Cuisine) formData.append("Cuisine", data.Cuisine);
 
-      
       if (data.profileImage) {
         formData.append("profileImage", data.profileImage);
       }
@@ -85,7 +80,6 @@ const VendorRegister = () => {
 
       console.log("Vendor registration", res.data);
 
-      
       if (res.data.token) localStorage.setItem("token", res.data.token);
       if (res.data.vendor?._id)
         localStorage.setItem("vendorId", res.data.vendor._id);
@@ -99,7 +93,6 @@ const VendorRegister = () => {
       );
       navigate("/vendor/otp");
     } catch (error) {
-      
       let errorMessage = "An error occurred during registration";
 
       if (error.response) {
@@ -304,12 +297,59 @@ const VendorRegister = () => {
               />
             </div>
 
-            {/* Button */}
+            {/* Enhanced Register Button */}
             <button
               type="submit"
-              className="w-full bg-green-400 text-white py-3 rounded-lg hover:bg-green-500 transition duration-300 font-medium">
-              Register as Vendor
+              disabled={loading}
+              className={`w-full py-3 rounded-lg transition duration-300 font-medium flex items-center justify-center ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed text-white"
+                  : "bg-green-400 text-white hover:bg-green-500"
+              }`}>
+              {loading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Registering...
+                </>
+              ) : (
+                "Register as Vendor"
+              )}
             </button>
+
+            {/* Register as Customer / Rider links */}
+            <div className="mt-4 text-center text-sm text-gray-600">
+              <p>
+                Register as{" "}
+                <Link
+                  to="/customer/register"
+                  className="text-green-600 hover:underline font-medium">
+                  Customer
+                </Link>{" "}
+                or{" "}
+                <Link
+                  to="/delivery/register"
+                  className="text-green-600 hover:underline font-medium">
+                  Rider
+                </Link>
+                ?
+              </p>
+            </div>
 
             <p className="mt-4 text-center text-gray-600">
               Already have an account?{" "}

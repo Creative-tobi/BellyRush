@@ -56,7 +56,7 @@ const orderSchema = new mongoose.Schema(
   {
     buyer: { type: mongoose.Types.ObjectId, ref: "Buyer" },
     vendor: { type: mongoose.Types.ObjectId, ref: "Vendor" },
-    delivery: { type: mongoose.Types.ObjectId, ref: "Delivery", default: null },
+    delivery: { type: mongoose.Types.ObjectId, ref: "Delivery" },
 
     // items from menu
     items: [
@@ -76,13 +76,14 @@ const orderSchema = new mongoose.Schema(
     contact: { type: String, required: false },
 
     totalamount: { type: Number, default: 0 },
+    deliveryShare: { type: Number, default: 0 }, // Share for delivery guy, e.g., 10% of totalamount
     status: {
       type: String,
       enum: ["pending", "paid", "inprogress", "completed", "cancelled", "delivered"],
       default: "pending",
     },
 
-    
+
     paymentStatus: {
       type: String,
       enum: ["unpaid", "processing", "succeeded", "failed", "paid"],

@@ -12,6 +12,7 @@ const {
   GetAssignOrder,
   updateOrderStatus,
   updateDeliveryProfile,
+  payRiderForDelivery,
 } = require("../controller/delivery.controller");
 const authmiddleware = require("../middleware/auth.middleware");
 const  upload  = require("../config/multer");
@@ -32,5 +33,6 @@ router.get("/findnearbydeliveries", findNearbyDeliveries);
 router.post("/deliverorder/:id", authmiddleware, deliverOrder);
 router.get("/getassignorder", authmiddleware, GetAssignOrder);
 router.put("/updateorderstatus/:id", authmiddleware, updateOrderStatus);
+router.post("/payrider", authmiddleware, payRiderForDelivery);
 
 module.exports = router;

@@ -175,6 +175,18 @@ const CustomerDashboard = () => {
     }
   };
 
+   const handleDeleteOrder = async (orderId) =>{
+      try {
+        await Api.delete(`/deletebuyerorder/${orderId}`);
+        const ordersRes = await Api.get("/getorders");
+        setOrders(ordersRes.data.orders);
+        alert("Order deleted successfully!");
+      } catch (error) {
+        console.error("Error deleting order:", error);  
+      }
+    }
+  
+
   //Handle Stripe Checkout Redirect
   const handleCheckout = async (orderId) => {
     try {
@@ -921,6 +933,11 @@ const CustomerDashboard = () => {
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium min-h-[44px]">
                   Close
                 </button>
+                <button
+                  onClick={() => handleDeleteOrder(selectedOrder._id)}
+                  className="text-red-400 pl-4 hover:text-red-900 text-xs">
+                  Remove Order
+                </button>
                 {selectedOrder.status === "pending" && (
                   <button
                     onClick={() => handleCheckout(selectedOrder._id)}
@@ -1022,6 +1039,13 @@ const CustomerDashboard = () => {
                               }`}>
                               {order.status}
                             </span>
+                            <button
+                              onClick={() =>
+                                handleDeleteOrder(order._id)
+                              }
+                              className="text-red-400 pl-4 hover:text-red-900 text-xs">
+                              Remove Order
+                            </button>
                           </div>
                         </div>
                       ))}

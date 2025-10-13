@@ -811,6 +811,23 @@ async function updateBuyer(req, res) {
   }
 }
 
+//deleting order
+async function deleteOrder(req, res) {
+  try {
+    const orderToDelete = await Order.findById(req.params.id);
+    if (!orderToDelete) {
+      return res.status(404).send({ error: "Order not found" });
+    }
+
+    const deletedOrder = await Order.findByIdAndDelete(req.params.id);
+    res
+      .status(200)
+      .send({ message: "Order deleted successfully", deletedOrder });
+  } catch (error) {
+    console.error("Delete order error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
 
 module.exports = {
   createBuyer,
@@ -828,4 +845,5 @@ module.exports = {
   updateBuyer,
   createCheckoutSession,
   confirmCheckout,
+  deleteOrder,
 };

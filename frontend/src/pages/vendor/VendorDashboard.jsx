@@ -165,6 +165,17 @@ const VendorDashboard = () => {
     navigate("/vendor/login");
   };
 
+  const handleDeleteOrder = async (orderId) =>{
+    try {
+      await Api.delete(`/deleteorder/${orderId}`);
+      const ordersRes = await Api.get("/vendororders");
+      setOrders(ordersRes.data.orders);
+      alert("Order deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting order:", error);  
+    }
+  }
+
   const getStatusColor = (status) => {
     const statusMap = {
       pending: "bg-yellow-100 text-yellow-800",
@@ -184,7 +195,7 @@ const VendorDashboard = () => {
       .filter(
         (order) => order.status === "completed" || order.status === "delivered"
       )
-      .reduce((total, order) => total + (order.totalamount || 0), 0);
+      .reduce((total, order) => total + ((order.totalamount || 0) - (order.deliveryShare || 0)), 0);
   };
 
   const calculatePendingOrders = () => {
@@ -705,6 +716,10 @@ const VendorDashboard = () => {
                                 )}
                               </div>
                             )}
+                                <button
+                                  onClick={() => handleDeleteOrder(order._id)}  className="text-red-600 hover:text-red-900 text-xs">
+                                  Delete order
+                                </button>
                         </td>
                       </tr>
                     ))

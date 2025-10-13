@@ -739,9 +739,18 @@ async function assignOrder(req, res) {
         .send({ message: "Delivery person is not available" });
     }
 
+    // Calculate delivery share (e.g., 10% of totalamount)
+    const deliveryShare = Math.round(order.totalamount * 0.1); // 10% share
+    order.deliveryShare = deliveryShare;
+
     order.delivery = deliveryId;
     order.status = "paid";
     await order.save();
+
+    // Update delivery status to busy
+    delivery.status = "busy";
+    await delivery.save();
+
     res.status(200).send({
       message: "Order assigned to delivery person successfully",
       order: await order.populate("delivery", "name phone"),
@@ -768,6 +777,25 @@ async function getAvailableDeliveryRiders(req, res) {
     res.status(500).send({ error: "Internal server error" });
   }
 }
+
+//deleting order
+async function deleteOrder(req, res) {
+  try {
+    const orderToDelete = await Order.findById(req.params.id);
+    if (!orderToDelete) {
+      return res.status(404).send({ error: "Order not found" });
+    }
+
+    const deletedOrder = await Order.findByIdAndDelete(req.params.id);
+    res
+      .status(200)
+      .send({ message: "Order deleted successfully", deletedOrder });
+  } catch (error) {
+    console.error("Delete order error:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createVendor,
   resendOTP,
@@ -783,4 +811,5 @@ module.exports = {
   getVendorMenu,
   assignOrder,
   getAvailableDeliveryRiders,
+  deleteOrder,
 };
