@@ -15,18 +15,31 @@ import { FaFacebook } from "react-icons/fa6";
 import { BsTwitterX } from "react-icons/bs";
 import { FaInstagram } from "react-icons/fa";
 import { FaLinkedinIn } from "react-icons/fa6";
-
-
+import Api from "./component/Api"; 
 
 const Homepage = () => {
   const [data, setData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
+
+  const [contactData, setContactData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
 
   const handleChange = (e) =>
     setData({
       ...data,
       [e.target.name]: e.target.value,
     });
+
+ 
+  const handleContactChange = (e) => {
+    setContactData({
+      ...contactData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   const handleDeliveryRegister = async (e) => {
     e.preventDefault();
@@ -47,12 +60,16 @@ const Homepage = () => {
   };
 
   const handleContactUs = async (e) => {
+    e.preventDefault();
     try {
-      await Api.post("/contactus", { name, email, message });
+      await Api.post("/contactus", contactData);
+      alert("Message sent successfully!");
+      setContactData({ name: "", email: "", message: "" }); 
     } catch (error) {
-      error.response && alert(error.response.data.message);
+      const msg = error.response?.data?.message || "Failed to send message.";
+      alert(msg);
     }
-  }
+  };
 
   const handleUserRegister = async (e) => {
     e.preventDefault();
@@ -220,7 +237,7 @@ const Homepage = () => {
                 <motion.img
                   src={img}
                   alt={`restaurant ${index + 1}`}
-                  className="rounded-full bg-gray-400 h-24 w-24 md:h-60 md:w-60" // Larger images
+                  className="rounded-full bg-gray-400 h-24 w-24 md:h-60 md:w-60"
                   whileHover={{ rotate: 5 }}
                 />
                 <motion.p
@@ -304,7 +321,7 @@ const Homepage = () => {
                   <motion.img
                     src={item.img}
                     alt="delivery food"
-                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60" // Larger images
+                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60"
                     style={{ borderRadius: "50% 50% 20% 50%" }}
                     whileHover={{ rotate: 10 }}
                   />
@@ -452,7 +469,7 @@ const Homepage = () => {
                   <motion.img
                     src={testimonial.img}
                     alt={`customer ${index + 1}`}
-                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60" // Larger images
+                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60"
                     style={{ borderRadius: "50% 50% 20% 50%" }}
                   />
                 </motion.div>
@@ -532,7 +549,7 @@ const Homepage = () => {
                   <motion.img
                     src={item.img}
                     alt={`option ${index + 1}`}
-                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60" // Larger images
+                    className="py-6 px-6 bg-green-200 w-24 h-24 md:w-60 md:h-60"
                     style={{ borderRadius: "50% 50% 20% 50%" }}
                   />
                 </motion.div>
@@ -575,7 +592,6 @@ const Homepage = () => {
             </p>
 
             <div>
-              {/* <h2 className="text-xl font-semibold my-4">Follow Us</h2> */}
               <div className="flex gap-4 text-2xl">
                 <a
                   href="https://web.facebook.com/aishat.adeoye.35"
@@ -608,28 +624,38 @@ const Homepage = () => {
           </div>
 
           <div>
-            <form action="submit" className="text-left">
+            {/* 👇 FIXED FORM: controlled inputs with name & onChange */}
+            <form onSubmit={handleContactUs} className="text-left">
               <h2 className="text-xl font-semibold my-4">Contact Us</h2>
               <input
                 type="text"
+                name="name"
+                value={contactData.name}
+                onChange={handleContactChange}
                 placeholder="Your Name"
                 className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
                 required
               />
               <input
                 type="email"
+                name="email"
+                value={contactData.email}
+                onChange={handleContactChange}
                 placeholder="Your Email"
                 className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
                 required
               />
               <textarea
+                name="message"
+                value={contactData.message}
+                onChange={handleContactChange}
                 placeholder="Your Message"
                 className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
                 rows="3"
                 required></textarea>
               <button
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-medium transition-colors flex items-center gap-2 whitespace-nowrap mt-2"
-                onClick={handleContactUs}>
+                type="submit">
                 Contact Us
               </button>
             </form>

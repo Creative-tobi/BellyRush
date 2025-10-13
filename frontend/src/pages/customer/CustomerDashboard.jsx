@@ -7,6 +7,10 @@ import cicken from "/src/media/cicken.jpg";
 import delivery from "/src/media/delivey.jpg";
 import vendor from "/src/media/vendor.jpg";
 import user from "/src/media/buyer.jpg";
+import { FaFacebook } from "react-icons/fa6";
+import { BsTwitterX } from "react-icons/bs";
+import { FaInstagram } from "react-icons/fa";
+import { FaLinkedinIn } from "react-icons/fa6";
 
 const CustomerDashboard = () => {
   const [customer, setCustomer] = useState(null);
@@ -21,9 +25,7 @@ const CustomerDashboard = () => {
   const [addressInput, setAddressInput] = useState("");
   const [isAddressDirty, setIsAddressDirty] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
-
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-
   // Profile Modal States
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -35,6 +37,13 @@ const CustomerDashboard = () => {
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // 👇 NEW: Contact form state
+  const [contactData, setContactData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
 
   const navigate = useNavigate();
 
@@ -56,13 +65,10 @@ const CustomerDashboard = () => {
         phone: profileRes.data.buyer.phone || "",
         address: profileRes.data.buyer.address || "",
       });
-
       const vendorsRes = await Api.get("/restaurants");
       setVendors(vendorsRes.data.vendors || []);
-
       const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders || []);
-
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -77,15 +83,27 @@ const CustomerDashboard = () => {
     }
   };
 
+  // 👇 NEW: Handle contact form input changes
+  const handleContactChange = (e) => {
+    setContactData({
+      ...contactData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-   const handleContactUs = async (e) => {
+  // 👇 UPDATED: Proper contact form handler
+  const handleContactUs = async (e) => {
+    e.preventDefault();
     try {
-      await Api.post("/contactus", { name, email, message });
+      await Api.post("/contactus", contactData);
+      alert("Message sent successfully!");
+      setContactData({ name: "", email: "", message: "" }); // reset
     } catch (error) {
-      error.response && alert(error.response.data.message);
+      const msg = error.response?.data?.message || "Failed to send message.";
+      alert(msg);
     }
-  }
-  
+  };
+
   const fetchVendorMenu = useCallback(
     async (vendorId) => {
       try {
@@ -132,23 +150,19 @@ const CustomerDashboard = () => {
         alert("Please login first");
         return;
       }
-
       const currentCart = getCurrentCart();
       const isItemInCart = currentCart?.items?.some(
         (item) => item.menuId === menuId
       );
-
       const deliveryaddress =
         customer.address || "Please update your delivery address in profile";
       const contact =
         customer.phone || "Please update your phone number in profile";
-
       const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
       if (!phoneRegex.test(contact.replace(/[^+\d]/g, ""))) {
         alert("Please update your phone number in profile with a valid format");
         return;
       }
-
       const payload = {
         menuId,
         buyerId: customer._id,
@@ -156,11 +170,9 @@ const CustomerDashboard = () => {
         contact,
         quantity,
       };
-
       await Api.post("/createorder", payload);
       const ordersRes = await Api.get("/getorders");
       setOrders(ordersRes.data.orders || []);
-
       if (isItemInCart) {
         alert("Item already in cart! Quantity increased.");
       } else {
@@ -184,17 +196,16 @@ const CustomerDashboard = () => {
     }
   };
 
-   const handleDeleteOrder = async (orderId) =>{
-      try {
-        await Api.delete(`/deletebuyerorder/${orderId}`);
-        const ordersRes = await Api.get("/getorders");
-        setOrders(ordersRes.data.orders);
-        alert("Order deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting order:", error);  
-      }
+  const handleDeleteOrder = async (orderId) => {
+    try {
+      await Api.delete(`/deletebuyerorder/${orderId}`);
+      const ordersRes = await Api.get("/getorders");
+      setOrders(ordersRes.data.orders);
+      alert("Order deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting order:", error);
     }
-  
+  };
 
   //Handle Stripe Checkout Redirect
   const handleCheckout = async (orderId) => {
@@ -204,17 +215,15 @@ const CustomerDashboard = () => {
         alert("Please update your delivery address in the cart.");
         return;
       }
-
       const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
       if (!phoneRegex.test(currentCart.contact.replace(/[^+\d]/g, ""))) {
         alert("Please update your phone number with a valid format.");
         return;
       }
-
       // Call backend to create Stripe Checkout Session
       const response = await Api.post(`/create-checkout-session/${orderId}`);
       if (response.data?.url) {
-        window.location.href = response.data.url; 
+        window.location.href = response.data.url;
       } else {
         throw new Error("No checkout URL returned");
       }
@@ -313,11 +322,9 @@ const CustomerDashboard = () => {
       if (profileImageFile) {
         formData.append("profileImage", profileImageFile);
       }
-
       const res = await Api.put("/updatebuyer", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       setCustomer(res.data.buyer);
       setProfileData({
         name: res.data.buyer.name,
@@ -476,7 +483,6 @@ const CustomerDashboard = () => {
           </div>
         </div>
       </header>
-
       <main>
         {/* Hero Section */}
         <motion.section
@@ -534,7 +540,6 @@ const CustomerDashboard = () => {
             </motion.div>
           </div>
         </motion.section>
-
         {/* Vendor Grid */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex justify-between items-center mb-6 flex-col sm:flex-row gap-2">
@@ -690,7 +695,6 @@ const CustomerDashboard = () => {
             </motion.div>
           )}
         </section>
-
         {/* CTA Section */}
         <motion.section
           className="text-center px-4 sm:px-6 lg:px-8 py-16 bg-green-100"
@@ -767,7 +771,6 @@ const CustomerDashboard = () => {
             ))}
           </motion.div>
         </motion.section>
-
         {/* Footer */}
         <motion.footer
           className="bg-black text-white text-center p-4"
@@ -775,80 +778,86 @@ const CustomerDashboard = () => {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: false }}>
-            <div className="flex bg-gray-900 justify-around gap-6 mb-2 p-6 flex-wrap place-items-center">
-                      <div className="text-left max-w-md space-y-4">
-                        <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
-                        <p>
-                          From doorstep meals to last-minute essentials, BellyRush is your
-                          all-in-one delivery partner—bringing speed, reliability, and
-                          convenience to every order, every time.
-                        </p>
-            
-                        <div>
-                          {/* <h2 className="text-xl font-semibold my-4">Follow Us</h2> */}
-                          <div className="flex gap-4 text-2xl">
-                            <a
-                              href="https://web.facebook.com/aishat.adeoye.35"
-                              className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
-                              <FaFacebook />
-                            </a>
-                            <a
-                              href="https://x.com/aish15294"
-                              className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
-                              <BsTwitterX />
-                            </a>
-                            <a
-                              href="https://www.instagram.com/horluwartohbi75/"
-                              className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
-                              <FaInstagram />
-                            </a>
-                            <a
-                              href="https://www.linkedin.com/in/adeoye-tobi-097528297/"
-                              className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
-                              <FaLinkedinIn />
-                            </a>
-                          </div>
-                          <p className="py-4">
-                            Phone:{" "}
-                            <a href="#" className="hover:text-green-500 underline">
-                              +1 (234) 567-8901
-                            </a>
-                          </p>
-                        </div>
-                      </div>
-            
-                      <div>
-                        <form action="submit" className="text-left">
-                          <h2 className="text-xl font-semibold my-4">Contact Us</h2>
-                          <input
-                            type="text"
-                            placeholder="Your Name"
-                            className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
-                            required
-                          />
-                          <input
-                            type="email"
-                            placeholder="Your Email"
-                            className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
-                            required
-                          />
-                          <textarea
-                            placeholder="Your Message"
-                            className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
-                            rows="3"
-                            required></textarea>
-                          <button
-                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-medium transition-colors flex items-center gap-2 whitespace-nowrap mt-2"
-                            onClick={handleContactUs}>
-                            Contact Us
-                          </button>
-                        </form>
-                      </div>
-                    </div>
+          <div className="flex bg-gray-900 justify-around gap-6 mb-2 p-6 flex-wrap place-items-center">
+            <div className="text-left max-w-md space-y-4">
+              <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
+              <p>
+                From doorstep meals to last-minute essentials, BellyRush is your
+                all-in-one delivery partner—bringing speed, reliability, and
+                convenience to every order, every time.
+              </p>
+              <div>
+                <div className="flex gap-4 text-2xl">
+                  <a
+                    href="https://web.facebook.com/aishat.adeoye.35"
+                    className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                    <FaFacebook />
+                  </a>
+                  <a
+                    href="https://x.com/aish15294"
+                    className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                    <BsTwitterX />
+                  </a>
+                  <a
+                    href="https://www.instagram.com/horluwartohbi75/"
+                    className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                    <FaInstagram />
+                  </a>
+                  <a
+                    href="https://www.linkedin.com/in/adeoye-tobi-097528297/"
+                    className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                    <FaLinkedinIn />
+                  </a>
+                </div>
+                <p className="py-4">
+                  Phone:{" "}
+                  <a href="#" className="hover:text-green-500 underline">
+                    +1 (234) 567-8901
+                  </a>
+                </p>
+              </div>
+            </div>
+            <div>
+              {/* 👇 FIXED CONTACT FORM */}
+              <form onSubmit={handleContactUs} className="text-left">
+                <h2 className="text-xl font-semibold my-4">Contact Us</h2>
+                <input
+                  type="text"
+                  name="name"
+                  value={contactData.name}
+                  onChange={handleContactChange}
+                  placeholder="Your Name"
+                  className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                  required
+                />
+                <input
+                  type="email"
+                  name="email"
+                  value={contactData.email}
+                  onChange={handleContactChange}
+                  placeholder="Your Email"
+                  className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                  required
+                />
+                <textarea
+                  name="message"
+                  value={contactData.message}
+                  onChange={handleContactChange}
+                  placeholder="Your Message"
+                  className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                  rows="3"
+                  required></textarea>
+                <button
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-medium transition-colors flex items-center gap-2 whitespace-nowrap mt-2"
+                  type="submit">
+                  Contact Us
+                </button>
+              </form>
+            </div>
+          </div>
           &copy; {new Date().getFullYear()} BellyRush. All rights reserved.
         </motion.footer>
       </main>
-
       {/* Order Modal */}
       <AnimatePresence>
         {isOrderModalOpen && selectedOrder && (
@@ -1029,7 +1038,6 @@ const CustomerDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Order History Modal */}
       <AnimatePresence>
         {isHistoryModalOpen && (
@@ -1119,9 +1127,7 @@ const CustomerDashboard = () => {
                               {order.status}
                             </span>
                             <button
-                              onClick={() =>
-                                handleDeleteOrder(order._id)
-                              }
+                              onClick={() => handleDeleteOrder(order._id)}
                               className="text-red-400 pl-4 hover:text-red-900 text-xs">
                               Remove Order
                             </button>
@@ -1142,7 +1148,6 @@ const CustomerDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Profile Modal */}
       <AnimatePresence>
         {isProfileModalOpen && (
