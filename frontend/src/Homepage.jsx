@@ -11,6 +11,11 @@ import fast from "/src/media/fast.jpg";
 import delivery from "/src/media/delivey.jpg";
 import vendor from "/src/media/vendor.jpg";
 import user from "/src/media/buyer.jpg";
+import { FaFacebook } from "react-icons/fa6";
+import { BsTwitterX } from "react-icons/bs";
+import { FaInstagram } from "react-icons/fa";
+import { FaLinkedinIn } from "react-icons/fa6";
+
 
 
 const Homepage = () => {
@@ -40,6 +45,14 @@ const Homepage = () => {
       error.response && alert(error.response.data.message);
     }
   };
+
+  const handleContactUs = async (e) => {
+    try {
+      await Api.post("/contactus", { name, email, message });
+    } catch (error) {
+      error.response && alert(error.response.data.message);
+    }
+  }
 
   const handleUserRegister = async (e) => {
     e.preventDefault();
@@ -547,11 +560,81 @@ const Homepage = () => {
       </motion.section>
 
       <motion.footer
-        className="bg-black text-white text-center p-6"
+        className="bg-black text-white text-center "
         initial={{ opacity: 1, y: 50 }}
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         viewport={{ once: false, margin: "" }}>
+        <div className="flex bg-gray-900 justify-around gap-6 mb-2 p-6 flex-wrap place-items-center">
+          <div className="text-left max-w-md space-y-4">
+            <h1 className="text-2xl font-bold text-green-600">BellyRush</h1>
+            <p>
+              From doorstep meals to last-minute essentials, BellyRush is your
+              all-in-one delivery partner—bringing speed, reliability, and
+              convenience to every order, every time.
+            </p>
+
+            <div>
+              {/* <h2 className="text-xl font-semibold my-4">Follow Us</h2> */}
+              <div className="flex gap-4 text-2xl">
+                <a
+                  href="https://web.facebook.com/aishat.adeoye.35"
+                  className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                  <FaFacebook />
+                </a>
+                <a
+                  href="https://x.com/aish15294"
+                  className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                  <BsTwitterX />
+                </a>
+                <a
+                  href="https://www.instagram.com/horluwartohbi75/"
+                  className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                  <FaInstagram />
+                </a>
+                <a
+                  href="https://www.linkedin.com/in/adeoye-tobi-097528297/"
+                  className="hover:text-green-500 rounded-full border-2 border-green-500 text-center text-md p-2">
+                  <FaLinkedinIn />
+                </a>
+              </div>
+              <p className="py-4">
+                Phone:{" "}
+                <a href="#" className="hover:text-green-500 underline">
+                  +1 (234) 567-8901
+                </a>
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <form action="submit" className="text-left">
+              <h2 className="text-xl font-semibold my-4">Contact Us</h2>
+              <input
+                type="text"
+                placeholder="Your Name"
+                className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                required
+              />
+              <input
+                type="email"
+                placeholder="Your Email"
+                className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                required
+              />
+              <textarea
+                placeholder="Your Message"
+                className="w-full mb-2 px-3 py-2 rounded text-green-100 border-green-100"
+                rows="3"
+                required></textarea>
+              <button
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-medium transition-colors flex items-center gap-2 whitespace-nowrap mt-2"
+                onClick={handleContactUs}>
+                Contact Us
+              </button>
+            </form>
+          </div>
+        </div>
         &copy; {new Date().getFullYear()} BellyRush. All rights reserved.
       </motion.footer>
     </>
